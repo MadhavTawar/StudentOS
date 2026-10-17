@@ -6,6 +6,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from backend.app.core.config import settings
 from backend.app.db.session import Base, get_db
+from backend.app import main as main_module
 from backend.app.main import app
 from backend.app.models.user import User
 from backend.app.core.security import hash_password, create_access_token
@@ -33,7 +34,9 @@ def db() -> Generator:
 
 
 @pytest.fixture(scope="function")
-def client(db) -> Generator:
+def client(db, monkeypatch) -> Generator:
+    monkeypatch.setattr(main_module, "engine", engine)
+
     def override_get_db():
         try:
             yield db

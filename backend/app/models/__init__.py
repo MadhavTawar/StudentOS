@@ -5,6 +5,13 @@ from backend.app.models.deadline import Deadline
 from backend.app.models.integration import OAuthIntegration, OAuthState, EmailMetadataCache
 from backend.app.models.reminder import Reminder, InAppNotification
 from backend.app.models.ai_candidate import AIExtractionCandidate
+from backend.app.models.knowledge import (
+    KnowledgeAuditEvent,
+    KnowledgeDocument,
+    KnowledgeDocumentChunk,
+    KnowledgeDocumentVersion,
+    UserRole,
+)
 
 __all__ = [
     "Base",
@@ -19,4 +26,9 @@ __all__ = [
     "Reminder",
     "InAppNotification",
     "AIExtractionCandidate",
+    "UserRole",
+    "KnowledgeDocument",
+    "KnowledgeDocumentVersion",
+    "KnowledgeDocumentChunk",
+    "KnowledgeAuditEvent",
 ]

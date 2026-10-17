@@ -4,10 +4,10 @@ from pydantic import BaseModel, Field, ConfigDict
 
 
 class EmailExtractionRequest(BaseModel):
-    message_id: str
-    subject: str
-    snippet: str
-    sender: str
+    message_id: str = Field(..., min_length=1, max_length=128)
+    subject: str = Field(..., min_length=1, max_length=500)
+    snippet: str = Field(..., max_length=5000)
+    sender: str = Field(..., min_length=1, max_length=255)
     email_date: Optional[datetime] = None
 
 
@@ -34,8 +34,8 @@ class ExtractedDeadlineCandidate(BaseModel):
 class EmailExtractionResponse(BaseModel):
     message_id: str
     summary: str
-    tasks: List[ExtractedTaskCandidate] = []
-    deadlines: List[ExtractedDeadlineCandidate] = []
+    tasks: List[ExtractedTaskCandidate] = Field(default_factory=list)
+    deadlines: List[ExtractedDeadlineCandidate] = Field(default_factory=list)
     confidence_overall: float
     provider_used: str
     is_fallback: bool
@@ -65,10 +65,10 @@ class AICandidateResponse(BaseModel):
 class AICandidateReviewRequest(BaseModel):
     action: str = Field(..., pattern="^(approve|reject|modify)$")
     # In case user edits before approving
-    modified_title: Optional[str] = None
+    modified_title: Optional[str] = Field(None, min_length=1, max_length=255)
     modified_due_date: Optional[datetime] = None
-    modified_priority: Optional[str] = None
-    modified_category: Optional[str] = None
+    modified_priority: Optional[str] = Field(None, pattern="^(Low|Medium|High|Urgent)$")
+    modified_category: Optional[str] = Field(None, max_length=64)
 
 
 class AIAssistantMessageRequest(BaseModel):

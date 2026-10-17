@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Outlet, Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Sidebar } from './Sidebar';
@@ -7,6 +7,17 @@ import { LoadingSkeleton } from '../common/LoadingSkeleton';
 
 export const Layout: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isSidebarOpen) return;
+
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsSidebarOpen(false);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [isSidebarOpen]);
 
   if (isLoading) {
     return (
@@ -35,14 +46,23 @@ export const Layout: React.FC = () => {
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg-main)' }}>
-      {/* Sidebar */}
-      <Sidebar />
+    <div className="app-shell">
+      {isSidebarOpen && (
+        <button
+          type="button"
+          className="sidebar-backdrop"
+          aria-label="Close navigation menu"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+      <Sidebar mobileOpen={isSidebarOpen} onNavigate={() => setIsSidebarOpen(false)} />
 
-      {/* Main Container */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        <Navbar />
-        <main style={{ flex: 1, padding: '2rem', overflowY: 'auto' }}>
+      <div className="app-content">
+        <Navbar
+          onMenuClick={() => setIsSidebarOpen(true)}
+          isMenuOpen={isSidebarOpen}
+        />
+        <main className="app-main">
           <div style={{ maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
             <Outlet />
           </div>

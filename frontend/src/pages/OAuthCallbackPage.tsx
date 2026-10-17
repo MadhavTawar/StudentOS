@@ -37,7 +37,7 @@ export const OAuthCallbackPage: React.FC = () => {
   return (
     <main style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', backgroundColor: 'var(--bg-main)', padding: '2rem' }}>
       <section style={{ maxWidth: '32rem', textAlign: 'center' }}>
-        <h1 style={{ color: '#ffffff', fontSize: '1.5rem', fontWeight: 800 }}>
+        <h1 style={{ color: 'var(--text-main)', fontSize: '1.5rem', fontWeight: 700 }}>
           {error ? 'Gmail connection failed' : 'Connecting Gmail…'}
         </h1>
         <p style={{ color: 'var(--text-muted)', marginTop: '0.75rem' }}>

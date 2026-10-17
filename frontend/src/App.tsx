@@ -12,6 +12,8 @@ import { AssistantPage } from './pages/AssistantPage';
 import { RemindersPage } from './pages/RemindersPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { OAuthCallbackPage } from './pages/OAuthCallbackPage';
+import { KnowledgePage } from './pages/KnowledgePage';
+import { KnowledgeAdminPage } from './pages/KnowledgeAdminPage';
 
 export function App() {
   return (
@@ -30,6 +32,8 @@ export function App() {
             <Route path="/deadlines" element={<DeadlinesPage />} />
             <Route path="/inbox" element={<InboxPage />} />
             <Route path="/assistant" element={<AssistantPage />} />
+            <Route path="/knowledge" element={<KnowledgePage />} />
+            <Route path="/knowledge/manage" element={<KnowledgeAdminPage />} />
             <Route path="/reminders" element={<RemindersPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>

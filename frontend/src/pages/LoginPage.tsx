@@ -30,6 +30,7 @@ export const LoginPage: React.FC = () => {
 
   return (
     <div
+      className="login-screen"
       style={{
         minHeight: '100vh',
         display: 'flex',
@@ -40,11 +41,11 @@ export const LoginPage: React.FC = () => {
       }}
     >
       <div
-        className="card animate-fade-in"
+        className="card login-card animate-fade-in"
         style={{
           width: '100%',
-          maxWidth: '440px',
-          padding: '2.5rem',
+          maxWidth: '410px',
+          padding: '2rem',
           backgroundColor: 'var(--bg-card)',
           borderColor: 'var(--border-card)',
           boxShadow: 'var(--shadow-modal)',
@@ -54,21 +55,21 @@ export const LoginPage: React.FC = () => {
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <div
             style={{
-              width: '48px',
-              height: '48px',
+              width: '44px',
+              height: '44px',
               borderRadius: 'var(--radius-lg)',
-              background: 'linear-gradient(135deg, var(--accent-primary) 0%, #3b82f6 100%)',
+              background: 'linear-gradient(145deg, #d3835b 0%, #a9523e 100%)',
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
               color: '#ffffff',
               boxShadow: 'var(--shadow-glow)',
-              marginBottom: '1rem',
+              marginBottom: '0.75rem',
             }}
           >
             <GraduationCap size={28} />
           </div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em' }}>
+          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.03em' }}>
             Welcome back to Student<span style={{ color: 'var(--accent-primary)' }}>OS</span>
           </h1>
           <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>
@@ -99,7 +100,7 @@ export const LoginPage: React.FC = () => {
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           <div>
             <label className="label" htmlFor="email">
-              University Email Address
+              Email address
             </label>
             <div style={{ position: 'relative' }}>
               <input
@@ -107,7 +108,7 @@ export const LoginPage: React.FC = () => {
                 type="email"
                 required
                 className="input"
-                placeholder="student@university.edu"
+                placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 style={{ paddingLeft: '2.5rem' }}

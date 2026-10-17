@@ -34,6 +34,7 @@ export const InboxPage: React.FC = () => {
   const [isExtracting, setIsExtracting] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [reviewMessage, setReviewMessage] = useState<string | null>(null);
+  const [candidateEdits, setCandidateEdits] = useState<Record<string, { title: string; dueDate: string }>>({});
 
   const fetchInbox = async () => {
     setIsLoading(true);
@@ -102,6 +103,16 @@ export const InboxPage: React.FC = () => {
         sender: email.sender,
       });
       setExtractedCandidates(candidates);
+      setCandidateEdits(Object.fromEntries(candidates.map((candidate) => {
+        const dueDate = candidate.suggested_due_date ? new Date(candidate.suggested_due_date) : null;
+        if (dueDate) {
+          dueDate.setMinutes(dueDate.getMinutes() - dueDate.getTimezoneOffset());
+        }
+        return [candidate.id, {
+          title: candidate.title,
+          dueDate: dueDate?.toISOString().slice(0, 16) || '',
+        }];
+      })));
     } catch (err: any) {
       setReviewMessage(err.message || 'AI extraction failed.');
     } finally {
@@ -111,7 +122,11 @@ export const InboxPage: React.FC = () => {
 
   const handleReviewAction = async (candidateId: string, action: 'approve' | 'reject') => {
     try {
-      await api.reviewAICandidate(candidateId, action);
+      const edits = candidateEdits[candidateId];
+      await api.reviewAICandidate(candidateId, action, {
+        title: edits ? edits.title.trim() : undefined,
+        suggested_due_date: edits?.dueDate ? new Date(edits.dueDate).toISOString() : undefined,
+      });
       setExtractedCandidates((prev) =>
         prev.map((c) => (c.id === candidateId ? { ...c, validation_status: action === 'approve' ? 'approved' : 'rejected' } : c))
       );
@@ -134,7 +149,7 @@ export const InboxPage: React.FC = () => {
             Academic Inbox
           </h1>
           <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-            Read-only Gmail integration with automated assignment and examination candidate extraction.
+            Read-only Gmail integration with assignment and examination suggestions. If AI_PROVIDER=groq, the selected email's subject, sender, and snippet are sent to Groq for extraction.
           </p>
         </div>
 
@@ -406,6 +421,47 @@ export const InboxPage: React.FC = () => {
                           <div style={{ fontSize: '0.8125rem', color: 'var(--accent-secondary)', marginTop: '0.25rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
                             <Clock size={14} />
                             Suggested Due Date: {new Date(candidate.suggested_due_date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                          </div>
+                        )}
+
+                        {candidate.validation_status === 'pending_review' && (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginTop: '0.75rem' }}>
+                            <label style={{ display: 'grid', gap: '0.25rem', color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                              Title
+                              <input
+                                className="input"
+                                aria-label={`Edit title for ${candidate.title}`}
+                                value={candidateEdits[candidate.id]?.title ?? candidate.title}
+                                onChange={(event) => setCandidateEdits((current) => ({
+                                  ...current,
+                                  [candidate.id]: {
+                                    title: event.target.value,
+                                    dueDate: current[candidate.id]?.dueDate ?? '',
+                                  },
+                                }))}
+                              />
+                            </label>
+                            <label style={{ display: 'grid', gap: '0.25rem', color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                              Due date and time
+                              <input
+                                className="input"
+                                type="datetime-local"
+                                aria-label={`Edit due date for ${candidate.title}`}
+                                value={candidateEdits[candidate.id]?.dueDate ?? ''}
+                                onChange={(event) => setCandidateEdits((current) => ({
+                                  ...current,
+                                  [candidate.id]: {
+                                    title: current[candidate.id]?.title ?? candidate.title,
+                                    dueDate: event.target.value,
+                                  },
+                                }))}
+                              />
+                            </label>
+                            {candidate.candidate_type === 'deadline' && !candidate.suggested_due_date && (
+                              <span style={{ alignSelf: 'end', color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                                No date was found in the email. Add one before approving this deadline.
+                              </span>
+                            )}
                           </div>
                         )}
 

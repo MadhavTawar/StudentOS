@@ -1,7 +1,7 @@
-import os
-import base64
-from typing import List, Union
-from pydantic import AnyHttpUrl, field_validator
+import secrets
+import warnings
+from typing import List
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from cryptography.fernet import Fernet
 
@@ -12,13 +12,12 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"  # "development" | "testing" | "production"
     
     # Secret key for JWT session tokens
-    SECRET_KEY: str = "dev-secret-key-change-in-production-studentos-2026-secure-jwt-secret"
+    SECRET_KEY: str = ""
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
     
     # Token Encryption Key for OAuth credentials (Fernet key - 32 url-safe base64-encoded bytes)
-    # Default provided for initial local dev, auto-generated or overridden via environment
-    ENCRYPTION_KEY: str = "REMOVED_EXPOSED_KEY"
+    ENCRYPTION_KEY: str = ""
     
     # SQLite local database by default, direct upgrade path to PostgreSQL
     DATABASE_URL: str = "sqlite:///./studentos.db"
@@ -37,11 +36,25 @@ class Settings(BaseSettings):
     GOOGLE_REDIRECT_URI: str = "http://localhost:5173/oauth/callback"
     GMAIL_READONLY_SCOPE: str = "https://www.googleapis.com/auth/gmail.readonly"
 
-    # AI Configuration (Optional provider: "mock", "offline", "groq", "openai")
-    AI_PROVIDER: str = "offline"  # Defaults to offline / rule-based fallback when no key is set
+    # AI Configuration ("offline" or "groq")
+    AI_PROVIDER: str = "offline"
     GROQ_API_KEY: str = ""
+    GROQ_API_URL: str = "https://api.groq.com/openai/v1/chat/completions"
+    GROQ_MODEL: str = "openai/gpt-oss-20b"
     OPENAI_API_KEY: str = ""
     HUGGINGFACE_API_KEY: str = ""
+
+    # Institute knowledge documents (local storage and local Chroma embeddings)
+    KNOWLEDGE_ADMIN_BOOTSTRAP_TOKEN: str = ""
+    KNOWLEDGE_STORAGE_DIR: str = "~/.studentos/knowledge"
+    KNOWLEDGE_VECTOR_DIR: str = "~/.studentos/chroma"
+    KNOWLEDGE_MAX_UPLOAD_BYTES: int = 15 * 1024 * 1024
+    KNOWLEDGE_MAX_PAGES: int = 300
+    KNOWLEDGE_MAX_EXTRACTED_CHARS: int = 1_000_000
+    KNOWLEDGE_CHUNK_SIZE: int = 1200
+    KNOWLEDGE_CHUNK_OVERLAP: int = 160
+    KNOWLEDGE_MAX_DISTANCE: float = 0.65
+    KNOWLEDGE_EMBEDDING_MODEL: str = "BAAI/bge-small-en-v1.5"
     
     # Rate Limiting & Safety
     LOGIN_MAX_ATTEMPTS: int = 5
@@ -54,17 +67,38 @@ class Settings(BaseSettings):
         extra="ignore"
     )
 
-    @field_validator("ENCRYPTION_KEY")
-    @classmethod
-    def validate_encryption_key(cls, v: str) -> str:
-        # Validate that Fernet can initialize with this key
+    @model_validator(mode="after")
+    def validate_security_keys(self):
+        if self.ENVIRONMENT.lower() == "production":
+            if len(self.SECRET_KEY) < 32:
+                raise ValueError("SECRET_KEY must contain at least 32 characters in production.")
+            if not self.ENCRYPTION_KEY:
+                raise ValueError("ENCRYPTION_KEY must be configured in production.")
+
+        if not self.SECRET_KEY:
+            self.SECRET_KEY = secrets.token_urlsafe(48)
+            warnings.warn(
+                "SECRET_KEY is unset; generated a temporary key for this process. "
+                "Configure a persistent key in .env for local development.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+
+        if not self.ENCRYPTION_KEY:
+            self.ENCRYPTION_KEY = Fernet.generate_key().decode()
+            warnings.warn(
+                "ENCRYPTION_KEY is unset; generated a temporary key for this process. "
+                "Configure a persistent key in .env before storing Gmail credentials.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+
         try:
-            Fernet(v.encode() if isinstance(v, str) else v)
-            return v
-        except Exception:
-            # If invalid or empty, generate a deterministic fallback key for dev and warn
-            new_key = Fernet.generate_key().decode()
-            return new_key
+            Fernet(self.ENCRYPTION_KEY.encode())
+        except (TypeError, ValueError) as exc:
+            raise ValueError("ENCRYPTION_KEY must be a valid Fernet key.") from exc
+
+        return self
 
 
 settings = Settings()

@@ -1,11 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, LogOut, User as UserIcon } from 'lucide-react';
+import { Bell, LogOut, Menu, User as UserIcon } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
 import { InAppNotification } from '../../types';
 import { NotificationDropdown } from './NotificationDropdown';
 
-export const Navbar: React.FC = () => {
+interface NavbarProps {
+  onMenuClick?: () => void;
+  isMenuOpen?: boolean;
+}
+
+export const Navbar: React.FC<NavbarProps> = ({ onMenuClick, isMenuOpen = false }) => {
   const { user, logout } = useAuth();
   const [notifications, setNotifications] = useState<InAppNotification[]>([]);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
@@ -48,10 +53,10 @@ export const Navbar: React.FC = () => {
   return (
     <header
       style={{
-        height: '64px',
+        height: '58px',
         backgroundColor: 'var(--bg-main)',
         borderBottom: '1px solid var(--border-card)',
-        padding: '0 1.5rem',
+        padding: '0 1.1rem',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -60,11 +65,21 @@ export const Navbar: React.FC = () => {
         zIndex: 10,
       }}
     >
-      {/* Date display */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-        <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-muted)' }}>
-          {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}
-        </span>
+      <button
+        type="button"
+        className="mobile-menu-button"
+        onClick={onMenuClick}
+        aria-label="Open navigation menu"
+        aria-expanded={isMenuOpen}
+        aria-controls="studentos-navigation"
+      >
+        <Menu size={20} />
+      </button>
+      <div className="topbar-date">
+        <span>FIELD NOTES / TODAY</span>
+        <time dateTime={new Date().toISOString()}>
+          {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+        </time>
       </div>
 
       {/* Right Controls */}

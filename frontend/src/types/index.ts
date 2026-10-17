@@ -17,9 +17,72 @@ export interface User {
   preference?: UserPreference;
 }
 
+export interface KnowledgeAccess {
+  is_admin: boolean;
+  can_manage_documents: boolean;
+  ai_provider: string;
+  admin_bootstrap_available: boolean;
+}
+
+export interface KnowledgeDocumentVersion {
+  id: string;
+  version_number: number;
+  original_filename: string;
+  status: 'processing' | 'ready' | 'published' | 'failed' | 'superseded' | 'archived';
+  page_count: number;
+  created_at: string;
+  processed_at?: string | null;
+  error_message?: string | null;
+}
+
+export interface KnowledgeDocument {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  status: 'draft' | 'published' | 'archived';
+  created_at: string;
+  updated_at: string;
+  versions: KnowledgeDocumentVersion[];
+}
+
+export interface KnowledgeLibraryItem {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  version_id: string;
+  version_number: number;
+  page_count: number;
+  published_at: string;
+}
+
+export interface KnowledgeCitation {
+  chunk_id: string;
+  document_id: string;
+  document_title: string;
+  version_id: string;
+  version_number: number;
+  page_start?: number | null;
+  page_end?: number | null;
+  excerpt: string;
+}
+
+export interface KnowledgeChatResponse {
+  answer: string;
+  insufficient_evidence: boolean;
+  citations: KnowledgeCitation[];
+}
+
+export interface DocumentManager {
+  user_id: string;
+  email: string;
+  full_name: string;
+  role: 'document_manager';
+  granted_at: string;
+}
+
 export interface AuthResponse {
-  access_token: string;
-  token_type: string;
   user: User;
 }
 
@@ -100,7 +163,7 @@ export interface AICandidate {
   candidate_type: 'task' | 'deadline';
   title: string;
   description?: string;
-  suggested_due_date?: string;
+  suggested_due_date?: string | null;
   category: string;
   priority: TaskPriority;
   supporting_evidence: string;

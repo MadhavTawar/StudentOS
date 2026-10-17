@@ -130,7 +130,7 @@ class GmailService:
                         }
                     )
                     if resp.status_code != 200:
-                        logger.error(f"Google token exchange failed: {resp.text}")
+                        logger.error(f"Google token exchange failed with status {resp.status_code}")
                         raise HTTPException(
                             status_code=status.HTTP_502_BAD_GATEWAY,
                             detail="Failed to authenticate with Google API."
@@ -139,13 +139,31 @@ class GmailService:
                     access_token = data.get("access_token")
                     refresh_token = data.get("refresh_token")
                     expires_in = data.get("expires_in", 3600)
+                    if not access_token:
+                        logger.error("Google token exchange response did not include an access token.")
+                        raise HTTPException(
+                            status_code=status.HTTP_502_BAD_GATEWAY,
+                            detail="Google authorization did not return an access token."
+                        )
 
                     # Fetch user's Gmail profile email
                     profile_resp = await client.get(
                         f"{GmailService.GMAIL_API_BASE}/profile",
                         headers={"Authorization": f"Bearer {access_token}"}
                     )
-                    user_email = profile_resp.json().get("emailAddress", "connected@gmail.com")
+                    if profile_resp.status_code != 200:
+                        logger.error(f"Google profile lookup failed with status {profile_resp.status_code}")
+                        raise HTTPException(
+                            status_code=status.HTTP_502_BAD_GATEWAY,
+                            detail="Could not verify the authorized Gmail account."
+                        )
+                    user_email = profile_resp.json().get("emailAddress")
+                    if not user_email:
+                        logger.error("Google profile response did not include an email address.")
+                        raise HTTPException(
+                            status_code=status.HTTP_502_BAD_GATEWAY,
+                            detail="Google did not provide an email address for the authorized account."
+                        )
             except httpx.RequestError as exc:
                 logger.error(f"Network error contacting Google API: {exc}")
                 raise HTTPException(

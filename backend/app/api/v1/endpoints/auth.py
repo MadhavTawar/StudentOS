@@ -28,11 +28,7 @@ def login(credentials: UserLogin, request: Request, response: Response, db: Sess
     access_token = create_access_token(subject=user.id)
     AuthService.set_session_cookie(response, access_token)
 
-    return TokenResponse(
-        access_token=access_token,
-        token_type="bearer",
-        user=UserResponse.model_validate(user)
-    )
+    return TokenResponse(user=UserResponse.model_validate(user))
 
 
 @router.post("/logout")

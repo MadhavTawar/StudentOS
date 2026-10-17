@@ -63,6 +63,8 @@ def decode_access_token(token: str) -> Optional[Dict[str, Any]]:
             settings.SECRET_KEY,
             algorithms=[settings.JWT_ALGORITHM]
         )
+        if payload.get("type") != "access_token" or not isinstance(payload.get("sub"), str):
+            return None
         return payload
     except jwt.PyJWTError as e:
         logger.warning(f"Token decoding error: {e}")

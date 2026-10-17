@@ -119,19 +119,24 @@ export const DashboardPage: React.FC = () => {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+    <div className="dashboard-overview" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       {/* Greeting Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
-        <div>
-          <h1 style={{ fontSize: '1.875rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.03em' }}>
+      <div className="dashboard-masthead" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+        <div className="dashboard-welcome">
+          <div className="dashboard-kicker"><span /> YOUR CAMPUS, IN ONE PLACE</div>
+          <h1 className="dashboard-title" style={{ fontSize: '1.875rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.03em' }}>
             {getGreeting()}, {user?.full_name?.split(' ')[0] || 'Student'}
           </h1>
-          <p style={{ fontSize: '0.9375rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-            Here is your academic overview for today.
+          <p className="dashboard-subtitle" style={{ fontSize: '0.9375rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+            A little structure for everything you’re working toward.
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div className="dashboard-masthead-actions" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div className="dashboard-date-stamp">
+            <CalendarDays size={15} />
+            <span>{new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+          </div>
           <Button variant="primary" onClick={() => setIsQuickTaskOpen(true)} icon={<Plus size={16} />}>
             Quick Task
           </Button>
@@ -139,14 +144,14 @@ export const DashboardPage: React.FC = () => {
       </div>
 
       {/* Stats Cards Grid */}
-      <div
+      <div className="dashboard-stat-grid"
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
           gap: '1rem',
         }}
       >
-        <div className="card" style={{ borderLeft: '4px solid var(--accent-primary)' }}>
+        <div className="card dashboard-stat" style={{ borderLeft: '4px solid var(--accent-primary)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
               <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', fontWeight: 600 }}>Active Tasks</div>
@@ -163,7 +168,7 @@ export const DashboardPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="card" style={{ borderLeft: '4px solid var(--accent-secondary)' }}>
+        <div className="card dashboard-stat" style={{ borderLeft: '4px solid var(--accent-secondary)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
               <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', fontWeight: 600 }}>Upcoming Deadlines</div>
@@ -180,7 +185,7 @@ export const DashboardPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="card" style={{ borderLeft: '4px solid var(--accent-danger)' }}>
+        <div className="card dashboard-stat" style={{ borderLeft: '4px solid var(--accent-danger)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
               <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', fontWeight: 600 }}>Overdue Tasks</div>
@@ -197,7 +202,7 @@ export const DashboardPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="card" style={{ borderLeft: '4px solid var(--accent-purple)' }}>
+        <div className="card dashboard-stat" style={{ borderLeft: '4px solid var(--accent-purple)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
               <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', fontWeight: 600 }}>Integration Status</div>
@@ -216,7 +221,7 @@ export const DashboardPage: React.FC = () => {
       </div>
 
       {/* Main Grid: Pending Tasks & Upcoming Deadlines */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: '1.5rem' }}>
+      <div className="dashboard-columns" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: '1.5rem' }}>
         {/* Pending Tasks Section */}
         <div className="card">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>

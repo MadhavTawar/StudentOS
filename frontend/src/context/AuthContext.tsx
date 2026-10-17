@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { User } from '../types';
 import { api } from '../lib/api';
 
@@ -17,20 +17,29 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const authRequestId = useRef(0);
 
   const refreshUser = async () => {
+    const requestId = ++authRequestId.current;
     try {
       const currentUser = await api.getMe();
-      setUser(currentUser);
+      if (requestId === authRequestId.current) {
+        setUser(currentUser);
+      }
     } catch {
-      setUser(null);
-      api.clearToken();
+      if (requestId === authRequestId.current) {
+        setUser(null);
+        api.clearToken();
+      }
     } finally {
-      setIsLoading(false);
+      if (requestId === authRequestId.current) {
+        setIsLoading(false);
+      }
     }
   };
 
   useEffect(() => {
+    api.clearToken();
     refreshUser();
 
     const handleAuthExpired = () => {
@@ -42,8 +51,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (email: string, password: string) => {
-    const res = await api.login({ email, password });
-    setUser(res.user);
+    const requestId = ++authRequestId.current;
+    try {
+      const res = await api.login({ email, password });
+      if (requestId === authRequestId.current) {
+        setUser(res.user);
+      }
+    } finally {
+      if (requestId === authRequestId.current) {
+        setIsLoading(false);
+      }
+    }
   };
 
   const register = async (email: string, password: string, fullName: string) => {
