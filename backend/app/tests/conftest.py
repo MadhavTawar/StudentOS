@@ -1,4 +1,5 @@
 import pytest
+import secrets
 from typing import Generator
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -50,10 +51,15 @@ def client(db, monkeypatch) -> Generator:
 
 
 @pytest.fixture(scope="function")
-def test_user(db) -> User:
+def test_password() -> str:
+    return secrets.token_urlsafe(24)
+
+
+@pytest.fixture(scope="function")
+def test_user(db, test_password) -> User:
     user = User(
         email="student@university.edu",
-        hashed_password=hash_password("SuperSecret123!"),
+        hashed_password=hash_password(test_password),
         full_name="Alex Student",
         is_active=True
     )

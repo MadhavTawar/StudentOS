@@ -1,10 +1,10 @@
 import pytest
 
 
-def test_user_registration(client):
+def test_user_registration(client, test_password):
     res = client.post("/api/v1/auth/register", json={
         "email": "newstudent@university.edu",
-        "password": "SecurePassword123!",
+        "password": test_password,
         "full_name": "New Student"
     })
     assert res.status_code == 201
@@ -14,20 +14,20 @@ def test_user_registration(client):
     assert "hashed_password" not in data
 
 
-def test_duplicate_user_registration_fails(client, test_user):
+def test_duplicate_user_registration_fails(client, test_user, test_password):
     res = client.post("/api/v1/auth/register", json={
         "email": test_user.email,
-        "password": "AnotherPassword123!",
+        "password": test_password,
         "full_name": "Imposter"
     })
     assert res.status_code == 400
     assert "already exists" in res.json()["detail"]
 
 
-def test_user_login_success(client, test_user):
+def test_user_login_success(client, test_user, test_password):
     res = client.post("/api/v1/auth/login", json={
         "email": test_user.email,
-        "password": "SuperSecret123!"
+        "password": test_password
     })
     assert res.status_code == 200
     data = res.json()
@@ -38,10 +38,10 @@ def test_user_login_success(client, test_user):
     assert "httponly" in cookie
 
 
-def test_cookie_authenticated_write_requires_trusted_origin(client, test_user):
+def test_cookie_authenticated_write_requires_trusted_origin(client, test_user, test_password):
     login_res = client.post("/api/v1/auth/login", json={
         "email": test_user.email,
-        "password": "SuperSecret123!"
+        "password": test_password
     })
     assert login_res.status_code == 200
 
@@ -56,10 +56,10 @@ def test_cookie_authenticated_write_requires_trusted_origin(client, test_user):
     assert allowed.status_code == 201
 
 
-def test_user_login_invalid_password(client, test_user):
+def test_user_login_invalid_password(client, test_user, test_password):
     res = client.post("/api/v1/auth/login", json={
         "email": test_user.email,
-        "password": "WrongPassword999!"
+        "password": f"{test_password}x"
     })
     assert res.status_code == 401
     assert "Incorrect email or password" in res.json()["detail"]
