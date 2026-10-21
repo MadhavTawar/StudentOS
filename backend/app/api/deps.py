@@ -1,4 +1,5 @@
 import time
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 from fastapi import Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordBearer
@@ -8,6 +9,7 @@ from backend.app.core.logging import logger
 from backend.app.core.security import decode_access_token
 from backend.app.db.session import get_db
 from backend.app.models.user import User
+from backend.app.models.user import UserSession
 
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl=f"{settings.API_V1_STR}/auth/login",
@@ -55,7 +57,7 @@ def get_current_user(
         )
         
     payload = decode_access_token(auth_token)
-    if not payload or not payload.get("sub"):
+    if not payload or not payload.get("sub") or not isinstance(payload.get("jti"), str):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired session token",
@@ -63,6 +65,25 @@ def get_current_user(
         )
         
     user_id = payload["sub"]
+    session = db.query(UserSession).filter_by(
+        user_id=user_id,
+        session_token=payload["jti"],
+    ).first()
+    if session is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session has been revoked or is invalid.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    expires_at = session.expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if expires_at <= datetime.now(timezone.utc):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session has expired.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(

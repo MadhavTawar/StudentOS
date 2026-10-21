@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional, Union
 import bcrypt
 import jwt
+import uuid
 from bs4 import BeautifulSoup
 from cryptography.fernet import Fernet, InvalidToken
 from backend.app.core.config import settings
@@ -49,7 +50,8 @@ def create_access_token(subject: Union[str, Any], expires_delta: Optional[timede
         "exp": expire,
         "iat": now,
         "sub": str(subject),
-        "type": "access_token"
+        "type": "access_token",
+        "jti": uuid.uuid4().hex,
     }
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
     return encoded_jwt

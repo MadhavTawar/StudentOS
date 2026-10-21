@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
-from backend.app.api.deps import get_db, get_current_user, check_rate_limit
+from backend.app.api.deps import get_db, get_current_user, check_rate_limit, oauth2_scheme
 from backend.app.core.security import create_access_token
 from backend.app.models.user import User
 from backend.app.schemas.auth import UserRegister, UserLogin, UserResponse, TokenResponse
@@ -26,14 +26,29 @@ def login(credentials: UserLogin, request: Request, response: Response, db: Sess
     
     user = AuthService.authenticate_user(db, credentials)
     access_token = create_access_token(subject=user.id)
+    AuthService.create_session(
+        db,
+        user,
+        access_token,
+        request.headers.get("user-agent"),
+        request.client.host if request.client else None,
+    )
     AuthService.set_session_cookie(response, access_token)
 
     return TokenResponse(user=UserResponse.model_validate(user))
 
 
 @router.post("/logout")
-def logout(response: Response, current_user: User = Depends(get_current_user)):
+def logout(
+    request: Request,
+    response: Response,
+    current_user: User = Depends(get_current_user),
+    token: str | None = Depends(oauth2_scheme),
+    db: Session = Depends(get_db),
+):
     """Log out current user and clear secure session cookie."""
+    auth_token = token or request.cookies.get("studentos_session")
+    AuthService.revoke_session(db, current_user, auth_token)
     AuthService.clear_session_cookie(response)
     return {"message": "Successfully logged out."}
 

@@ -1,4 +1,7 @@
 import pytest
+from datetime import datetime, timezone
+from backend.app.core.security import decode_access_token
+from backend.app.models.user import UserSession
 
 
 def test_user_registration(client, test_password):
@@ -36,6 +39,38 @@ def test_user_login_success(client, test_user, test_password):
     cookie = res.headers["set-cookie"].lower()
     assert "studentos_session=" in cookie
     assert "httponly" in cookie
+
+
+def test_login_session_is_accepted_and_logout_revokes_token(client, test_user, test_password, db):
+    login = client.post("/api/v1/auth/login", json={
+        "email": test_user.email,
+        "password": test_password,
+    })
+    assert login.status_code == 200
+    token = login.cookies["studentos_session"]
+    headers = {"Authorization": f"Bearer {token}"}
+    assert client.get("/api/v1/auth/me", headers=headers).status_code == 200
+
+    logout = client.post("/api/v1/auth/logout", headers=headers)
+    assert logout.status_code == 200
+    assert client.get("/api/v1/auth/me", headers=headers).status_code == 401
+    payload = decode_access_token(token)
+    assert db.query(UserSession).filter_by(session_token=payload["jti"]).first() is None
+
+
+def test_expired_session_is_rejected(client, test_user, test_password, db):
+    login = client.post("/api/v1/auth/login", json={
+        "email": test_user.email,
+        "password": test_password,
+    })
+    token = login.cookies["studentos_session"]
+    payload = decode_access_token(token)
+    session = db.query(UserSession).filter_by(session_token=payload["jti"]).one()
+    session.expires_at = datetime(2000, 1, 1, tzinfo=timezone.utc)
+    db.commit()
+
+    response = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 401
 
 
 def test_cookie_authenticated_write_requires_trusted_origin(client, test_user, test_password):

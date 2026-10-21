@@ -4,14 +4,38 @@ from fastapi import HTTPException, Response, status
 from sqlalchemy.orm import Session
 from backend.app.core.config import settings
 from backend.app.core.logging import logger
-from backend.app.core.security import hash_password, verify_password, create_access_token
-from backend.app.models.user import User, UserPreference
+from backend.app.core.security import decode_access_token, hash_password, verify_password
+from backend.app.models.user import User, UserPreference, UserSession
 from backend.app.services.workspace_service import create_personal_workspace
 from backend.app.schemas.auth import UserRegister, UserLogin
 from backend.app.schemas.user_preference import UserPreferenceUpdate
 
 
 class AuthService:
+    @staticmethod
+    def create_session(db: Session, user: User, token: str, user_agent: Optional[str], ip_address: Optional[str]) -> None:
+        payload = decode_access_token(token)
+        if payload is None or not isinstance(payload.get("jti"), str):
+            raise ValueError("Generated access token is missing its session identifier.")
+        now = datetime.now(timezone.utc)
+        db.query(UserSession).filter(UserSession.expires_at <= now).delete(synchronize_session=False)
+        db.add(UserSession(
+            user_id=user.id,
+            session_token=payload["jti"],
+            user_agent=user_agent[:255] if user_agent else None,
+            ip_address=ip_address[:64] if ip_address else None,
+            expires_at=datetime.fromtimestamp(payload["exp"], timezone.utc),
+        ))
+        db.commit()
+
+    @staticmethod
+    def revoke_session(db: Session, user: User, token: Optional[str]) -> None:
+        payload = decode_access_token(token) if token else None
+        jti = payload.get("jti") if payload else None
+        if isinstance(jti, str):
+            db.query(UserSession).filter_by(user_id=user.id, session_token=jti).delete()
+            db.commit()
+
     @staticmethod
     def register_user(db: Session, user_in: UserRegister) -> User:
         # Check if user already exists

@@ -10,10 +10,12 @@ from backend.app.db.session import Base, get_db
 from backend.app import main as main_module
 from backend.app.main import app
 from backend.app.models.user import User
+from backend.app.models.user import UserSession
 from backend.app.models.workspace import WorkspaceMembership
 from backend.app.services.workspace_service import create_personal_workspace
 from backend.app.services.workspace_service import create_organization_workspace
-from backend.app.core.security import hash_password, create_access_token
+from backend.app.core.security import hash_password, create_access_token, decode_access_token
+from datetime import datetime, timezone
 
 # Test In-Memory SQLite Engine
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
@@ -93,12 +95,30 @@ def second_user(db) -> User:
 @pytest.fixture(scope="function")
 def auth_headers(test_user) -> dict:
     token = create_access_token(subject=test_user.id)
+    payload = decode_access_token(token)
+    db = TestingSessionLocal()
+    db.add(UserSession(
+        user_id=test_user.id,
+        session_token=payload["jti"],
+        expires_at=datetime.fromtimestamp(payload["exp"], timezone.utc),
+    ))
+    db.commit()
+    db.close()
     return {"Authorization": f"Bearer {token}"}
 
 
 @pytest.fixture(scope="function")
 def second_auth_headers(second_user) -> dict:
     token = create_access_token(subject=second_user.id)
+    payload = decode_access_token(token)
+    db = TestingSessionLocal()
+    db.add(UserSession(
+        user_id=second_user.id,
+        session_token=payload["jti"],
+        expires_at=datetime.fromtimestamp(payload["exp"], timezone.utc),
+    ))
+    db.commit()
+    db.close()
     return {"Authorization": f"Bearer {token}"}
 
 
