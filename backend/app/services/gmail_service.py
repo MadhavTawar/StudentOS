@@ -440,13 +440,35 @@ class GmailService:
         return messages, total
 
     @staticmethod
-    def disconnect(db: Session, user_id: str):
+    async def disconnect(db: Session, user_id: str):
         """Safely disconnect Gmail and remove cached tokens."""
         integration = db.query(OAuthIntegration).filter(
             OAuthIntegration.user_id == user_id,
             OAuthIntegration.provider == "google_gmail"
         ).first()
         if integration:
+            encrypted_revocation_token = (
+                integration.encrypted_refresh_token or integration.encrypted_access_token
+            )
+            try:
+                revocation_token = decrypt_token(encrypted_revocation_token)
+                if revocation_token and not revocation_token.startswith("mock_"):
+                    async with httpx.AsyncClient(timeout=5.0) as client:
+                        response = await client.post(
+                            "https://oauth2.googleapis.com/revoke",
+                            data={"token": revocation_token},
+                        )
+                    if response.status_code != 200:
+                        logger.warning(
+                            "Google OAuth token revocation failed with status %s; "
+                            "local Gmail credentials will still be removed.",
+                            response.status_code,
+                        )
+            except (httpx.RequestError, ValueError):
+                logger.warning(
+                    "Google OAuth token revocation could not be completed; "
+                    "local Gmail credentials will still be removed."
+                )
             db.delete(integration)
             logger.info(f"Disconnected Gmail for user {user_id}")
         db.query(EmailMetadataCache).filter(

@@ -1,4 +1,112 @@
 import pytest
+from datetime import datetime, timezone
+
+from backend.app.core.security import encrypt_token
+from backend.app.models.integration import EmailMetadataCache, OAuthIntegration
+
+
+def _add_gmail_records(db, user_id, access_token, refresh_token=None):
+    db.add(OAuthIntegration(
+        user_id=user_id,
+        provider="google_gmail",
+        encrypted_access_token=encrypt_token(access_token),
+        encrypted_refresh_token=encrypt_token(refresh_token) if refresh_token else None,
+        email_address="student@example.test",
+    ))
+    db.add(EmailMetadataCache(
+        user_id=user_id,
+        message_id="cached-message",
+        sender="sender@example.test",
+        subject="Cached message",
+        internal_date=datetime.now(timezone.utc),
+    ))
+    db.commit()
+
+
+def test_gmail_disconnect_revokes_refresh_token_and_deletes_local_data(
+    client, auth_headers, test_user, db, monkeypatch
+):
+    from backend.app.services import gmail_service
+
+    _add_gmail_records(db, test_user.id, "access-token", "refresh-token")
+    calls = []
+
+    class FakeResponse:
+        status_code = 200
+
+    class FakeClient:
+        def __init__(self, timeout):
+            assert timeout == 5.0
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, traceback):
+            return None
+
+        async def post(self, url, data):
+            calls.append((url, data))
+            return FakeResponse()
+
+    monkeypatch.setattr(gmail_service.httpx, "AsyncClient", FakeClient)
+    response = client.post("/api/v1/gmail/disconnect", headers=auth_headers)
+
+    assert response.status_code == 200
+    assert calls == [(
+        "https://oauth2.googleapis.com/revoke",
+        {"token": "refresh-token"},
+    )]
+    assert db.query(OAuthIntegration).filter_by(user_id=test_user.id).first() is None
+    assert db.query(EmailMetadataCache).filter_by(user_id=test_user.id).count() == 0
+
+
+def test_gmail_disconnect_revocation_failure_still_clears_local_data(
+    client, auth_headers, test_user, db, monkeypatch
+):
+    from backend.app.services import gmail_service
+
+    _add_gmail_records(db, test_user.id, "access-token")
+
+    class FakeResponse:
+        status_code = 503
+
+    class FakeClient:
+        def __init__(self, timeout):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, traceback):
+            return None
+
+        async def post(self, url, data):
+            assert data == {"token": "access-token"}
+            return FakeResponse()
+
+    monkeypatch.setattr(gmail_service.httpx, "AsyncClient", FakeClient)
+    response = client.post("/api/v1/gmail/disconnect", headers=auth_headers)
+
+    assert response.status_code == 200
+    assert db.query(OAuthIntegration).filter_by(user_id=test_user.id).first() is None
+    assert db.query(EmailMetadataCache).filter_by(user_id=test_user.id).count() == 0
+
+
+def test_gmail_disconnect_skips_revocation_for_mock_tokens(
+    client, auth_headers, test_user, db, monkeypatch
+):
+    from backend.app.services import gmail_service
+
+    _add_gmail_records(db, test_user.id, "mock_access_token_test", "mock_refresh_token_test")
+
+    def unexpected_client(**kwargs):
+        raise AssertionError("Mock Gmail tokens must not trigger an external request.")
+
+    monkeypatch.setattr(gmail_service.httpx, "AsyncClient", unexpected_client)
+    response = client.post("/api/v1/gmail/disconnect", headers=auth_headers)
+
+    assert response.status_code == 200
+    assert db.query(OAuthIntegration).filter_by(user_id=test_user.id).first() is None
 
 
 def test_gmail_auth_url_rejects_partial_google_configuration(client, auth_headers, monkeypatch):

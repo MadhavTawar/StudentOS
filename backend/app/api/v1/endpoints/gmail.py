@@ -79,10 +79,10 @@ async def list_cached_messages(
 
 
 @router.post("/disconnect")
-def disconnect_gmail(
+async def disconnect_gmail(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Disconnect Gmail and remove stored tokens."""
-    GmailService.disconnect(db, user_id=current_user.id)
+    await GmailService.disconnect(db, user_id=current_user.id)
     return {"message": "Gmail successfully disconnected."}
