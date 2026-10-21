@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
+from sqlalchemy import inspect
 from backend.app.core.config import settings
 from backend.app.core.logging import logger
 from backend.app.db.session import engine, Base
@@ -92,9 +93,16 @@ class KnowledgeUploadLimitMiddleware:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Ensure tables exist
-    logger.info("Initializing database tables...")
-    Base.metadata.create_all(bind=engine)
+    environment = settings.ENVIRONMENT.lower()
+    if environment in {"development", "testing"}:
+        logger.info("Initializing database tables for %s environment...", environment)
+        Base.metadata.create_all(bind=engine)
+    elif environment == "production" and not inspect(engine).has_table("alembic_version"):
+        logger.error(
+            "Database migrations are required in production. Run `alembic upgrade head` "
+            "or stamp a verified existing schema before starting StudentOS."
+        )
+        raise RuntimeError("Production database is missing the Alembic version table.")
     migrate_legacy_knowledge_workspaces(engine)
     logger.info("Database initialized successfully.")
 

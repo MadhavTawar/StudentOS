@@ -1,3 +1,8 @@
+import os
+import subprocess
+import sys
+from pathlib import Path
+
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import Session
 
@@ -81,3 +86,43 @@ def test_legacy_knowledge_documents_are_assigned_to_uploader_workspace(monkeypat
     migrate_legacy_knowledge_workspaces(engine)
     assert migrated_versions == [(version_id, workspace.id)]
     engine.dispose()
+
+
+def test_alembic_upgrade_creates_current_schema(tmp_path):
+    database_path = tmp_path / "alembic-test.db"
+    environment = os.environ.copy()
+    environment["DATABASE_URL"] = f"sqlite:///{database_path.as_posix()}"
+    repository_root = Path(__file__).resolve().parents[3]
+    result = subprocess.run(
+        [sys.executable, "-m", "alembic", "upgrade", "head"],
+        cwd=repository_root,
+        env=environment,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+    migrated_engine = create_engine(f"sqlite:///{database_path.as_posix()}")
+    tables = set(inspect(migrated_engine).get_table_names())
+    assert {
+        "users",
+        "user_sessions",
+        "tasks",
+        "deadlines",
+        "oauth_integrations",
+        "reminders",
+        "in_app_notifications",
+        "ai_extraction_candidates",
+        "workspaces",
+        "workspace_memberships",
+        "workspace_invitations",
+        "workspace_subscriptions",
+        "knowledge_documents",
+        "knowledge_document_versions",
+        "knowledge_document_chunks",
+        "knowledge_audit_events",
+        "alembic_version",
+    }.issubset(tables)
+    migrated_engine.dispose()

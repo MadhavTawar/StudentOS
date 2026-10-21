@@ -52,7 +52,23 @@ Set-Location frontend
 npm run dev -- --host 127.0.0.1 --port 5173
 ```
 
-The backend creates missing SQLAlchemy tables at startup and runs an additive compatibility migration for legacy knowledge documents, assigning them to the uploader's private workspace and updating existing vector metadata. Back up the local database and vector directory before upgrades; do not use `drop_all()` outside isolated test fixtures. A complete versioned production migration/rollback workflow is still required before a public launch.
+Development and testing create missing SQLAlchemy tables at startup. Production requires Alembic migrations. The backend also runs an additive compatibility migration for legacy knowledge documents, assigning them to the uploader's private workspace and updating existing vector metadata. Back up the local database and vector directory before upgrades; do not use `drop_all()` outside isolated test fixtures.
+
+## Database migrations
+
+Run migrations for a new database or a schema that is behind the current revision:
+
+```powershell
+python -m alembic upgrade head
+```
+
+For an existing database that already has all tables and columns matching the current model baseline, back it up and inspect it before marking the baseline as applied:
+
+```powershell
+python -m alembic stamp head
+```
+
+`stamp head` only updates Alembic's revision marker; it does not create, compare, or repair schema objects. Do not stamp a partial or unverified database.
 
 ## Tests and checks
 
@@ -69,6 +85,8 @@ npm run lint
 ```
 
 The frontend does not currently have a unit-test framework configured. The backend tests use an isolated in-memory SQLite database; OAuth and external services should be mocked and must not require real Google credentials.
+
+GitHub Actions runs backend tests and the frontend install, production build, and lint checks on pushes and pull requests.
 
 ## Configuration notes
 

@@ -102,6 +102,8 @@ Visit the application in your browser at: **`http://localhost:5173`**
 The public product page is at `/`; the signed-in workspace is at `/app`.
 Backend OpenAPI interactive documentation: **`http://localhost:8000/docs`**
 
+For production database setup, run `python -m alembic upgrade head` before starting the backend. Existing databases that already match the current schema should be backed up and verified before using `python -m alembic stamp head`.
+
 ### Test Gmail with your own account
 
 1. In [Google Cloud Console](https://console.cloud.google.com/), create or select a project and enable the **Gmail API**.
