@@ -1,8 +1,9 @@
 import pytest
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from backend.app.core.security import encrypt_token
 from backend.app.models.integration import EmailMetadataCache, OAuthIntegration
+from backend.app.models.integration import OAuthState
 
 
 def _add_gmail_records(db, user_id, access_token, refresh_token=None):
@@ -134,6 +135,44 @@ def test_gmail_mock_code_rejected_when_google_is_configured(client, auth_headers
     }, headers=auth_headers)
     assert callback_res.status_code == 400
     assert "only accepted when Google OAuth is not configured" in callback_res.json()["detail"]
+
+
+def test_gmail_mock_oauth_is_allowed_outside_production(client, auth_headers, monkeypatch):
+    from backend.app.core.config import settings
+
+    monkeypatch.setattr(settings, "ENVIRONMENT", "testing")
+    monkeypatch.setattr(settings, "GOOGLE_CLIENT_ID", "")
+    monkeypatch.setattr(settings, "GOOGLE_CLIENT_SECRET", "")
+    response = client.get("/api/v1/gmail/auth-url", headers=auth_headers)
+    assert response.status_code == 200
+    assert "mock_google_code" in response.json()["auth_url"]
+
+
+def test_gmail_mock_oauth_is_disabled_in_production(client, auth_headers, test_user, db, monkeypatch):
+    from backend.app.core.config import settings
+
+    monkeypatch.setattr(settings, "ENVIRONMENT", "production")
+    monkeypatch.setattr(settings, "GOOGLE_CLIENT_ID", "")
+    monkeypatch.setattr(settings, "GOOGLE_CLIENT_SECRET", "")
+
+    url_response = client.get("/api/v1/gmail/auth-url", headers=auth_headers)
+    assert url_response.status_code == 503
+    assert "Configure GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET" in url_response.json()["detail"]
+
+    db.add(OAuthState(
+        user_id=test_user.id,
+        state_token="valid-state-for-production-test",
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=5),
+    ))
+    db.commit()
+    callback = client.post(
+        "/api/v1/gmail/callback",
+        json={"code": "mock_google_code_12345", "state": "valid-state-for-production-test"},
+        headers=auth_headers,
+    )
+    assert callback.status_code == 503
+    assert db.query(OAuthIntegration).filter_by(user_id=test_user.id).first() is None
+    assert db.query(EmailMetadataCache).filter_by(user_id=test_user.id).count() == 0
 
 
 def test_gmail_callback_does_not_fabricate_account_when_profile_lookup_fails(

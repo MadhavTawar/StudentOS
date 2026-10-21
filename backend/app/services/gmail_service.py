@@ -27,6 +27,15 @@ class GmailService:
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Google OAuth is partially configured. Set both GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET."
             )
+        if (
+            settings.ENVIRONMENT.lower() == "production"
+            and not settings.GOOGLE_CLIENT_ID
+            and not settings.GOOGLE_CLIENT_SECRET
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Google OAuth is unavailable in production. Configure GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.",
+            )
 
         state_token = secrets.token_urlsafe(32)
         expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
@@ -97,7 +106,11 @@ class GmailService:
         db.commit()
 
         # Check if running in mock dev mode or live Google OAuth
-        mock_mode = not settings.GOOGLE_CLIENT_ID and not settings.GOOGLE_CLIENT_SECRET
+        mock_mode = (
+            settings.ENVIRONMENT.lower() != "production"
+            and not settings.GOOGLE_CLIENT_ID
+            and not settings.GOOGLE_CLIENT_SECRET
+        )
         if mock_mode and code.startswith("mock_"):
             logger.info("Using simulated Google OAuth authorization for local development.")
             access_token = f"mock_access_token_{secrets.token_hex(16)}"
