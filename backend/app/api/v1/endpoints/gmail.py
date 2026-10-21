@@ -1,7 +1,7 @@
 from typing import Optional
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
-from backend.app.api.deps import get_db, get_current_user
+from backend.app.api.deps import check_rate_limit, get_db, get_current_user
 from backend.app.models.user import User
 from backend.app.schemas.gmail import (
     GmailAuthUrlResponse,
@@ -61,6 +61,7 @@ async def list_cached_messages(
     db: Session = Depends(get_db)
 ):
     """Fetch read-only email metadata (sender, subject, safe snippet)."""
+    check_rate_limit(f"gmail_messages_{current_user.id}", max_attempts=30, window_seconds=60)
     await GmailService.sync_messages(db, user_id=current_user.id)
     messages, total = GmailService.list_messages(
         db,

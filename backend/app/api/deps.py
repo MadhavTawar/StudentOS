@@ -18,12 +18,21 @@ oauth2_scheme = OAuth2PasswordBearer(
 
 # In-memory IP/identifier rate-limiter for authentication attempts
 _rate_limit_records: Dict[str, List[float]] = {}
+_rate_limit_windows: Dict[str, int] = {}
 
 def check_rate_limit(key: str, max_attempts: int = 5, window_seconds: int = 60):
     """Simple sliding-window rate limit checker."""
     now = time.time()
+    for existing_key, timestamps in list(_rate_limit_records.items()):
+        existing_window = _rate_limit_windows.get(existing_key, window_seconds)
+        live_timestamps = [timestamp for timestamp in timestamps if now - timestamp < existing_window]
+        if live_timestamps:
+            _rate_limit_records[existing_key] = live_timestamps
+        else:
+            _rate_limit_records.pop(existing_key, None)
+            _rate_limit_windows.pop(existing_key, None)
+
     attempts = _rate_limit_records.get(key, [])
-    # Filter attempts within window
     valid_attempts = [t for t in attempts if now - t < window_seconds]
     if len(valid_attempts) >= max_attempts:
         logger.warning(f"Rate limit exceeded for key: {key}")
@@ -33,6 +42,7 @@ def check_rate_limit(key: str, max_attempts: int = 5, window_seconds: int = 60):
         )
     valid_attempts.append(now)
     _rate_limit_records[key] = valid_attempts
+    _rate_limit_windows[key] = window_seconds
 
 
 def get_current_user(

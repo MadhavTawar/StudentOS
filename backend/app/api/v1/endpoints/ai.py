@@ -1,7 +1,7 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
-from backend.app.api.deps import get_db, get_current_user
+from backend.app.api.deps import check_rate_limit, get_db, get_current_user
 from backend.app.models.user import User
 from backend.app.schemas.ai import (
     EmailExtractionRequest,
@@ -26,6 +26,7 @@ async def extract_email_candidates(
     Stores proposals as 'pending_review' with evidence quotes.
     NEVER directly saves tasks without explicit user approval.
     """
+    check_rate_limit(f"ai_extract_{current_user.id}", max_attempts=30, window_seconds=60)
     candidates = await AIService.extract_and_store_candidates(db, user_id=current_user.id, request=request)
     return [AICandidateResponse.model_validate(c) for c in candidates]
 
@@ -70,6 +71,7 @@ async def chat_assistant(
     Ask StudentOS Assistant questions about schedule, deadlines, and study plans.
     Reads authenticated user's academic data only with strict authorization.
     """
+    check_rate_limit(f"ai_assistant_{current_user.id}", max_attempts=30, window_seconds=60)
     return await AIService.chat_with_assistant(
         db,
         user_id=current_user.id,

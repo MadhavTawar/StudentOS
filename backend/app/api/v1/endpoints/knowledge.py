@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, File, Form, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
-from backend.app.api.deps import get_current_user, get_db
+from backend.app.api.deps import check_rate_limit, get_current_user, get_db
 from backend.app.api.workspace_deps import require_current_workspace
 from backend.app.core.config import settings
 from backend.app.models.user import User
@@ -51,6 +51,7 @@ async def chat_with_knowledge(
     db: Session = Depends(get_db),
     workspace: Workspace = Depends(require_current_workspace),
 ):
+    check_rate_limit(f"knowledge_chat_{current_user.id}", max_attempts=30, window_seconds=60)
     return await knowledge_service.answer_question(db, request.question, workspace.id)
 
 
