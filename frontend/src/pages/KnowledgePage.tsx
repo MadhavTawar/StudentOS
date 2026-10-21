@@ -69,13 +69,13 @@ export const KnowledgePage: React.FC = () => {
   return (
     <section className="knowledge-page">
       <header className="knowledge-heading">
-        <span className="knowledge-eyebrow">CAMPUS REFERENCE DESK</span>
-        <h1>Institute knowledge</h1>
-        <p>Ask questions about published institute documents and check every answer against its sources.</p>
+        <span className="knowledge-eyebrow">SHARED WORKSPACE LIBRARY</span>
+        <h1>Knowledge library</h1>
+        <p>Ask questions about published workspace resources and check every answer against its sources.</p>
       </header>
 
       <div className="knowledge-layout">
-        <section className="knowledge-chat-panel" aria-label="Institute knowledge assistant">
+        <section className="knowledge-chat-panel" aria-label="Workspace knowledge assistant">
           <div className="knowledge-panel-heading">
             <div className="knowledge-panel-icon"><BookOpen size={19} /></div>
             <div>
@@ -89,7 +89,7 @@ export const KnowledgePage: React.FC = () => {
               <div className="knowledge-empty-chat">
                 <Search size={22} />
                 <strong>Find a clear answer, with evidence.</strong>
-                <span>Try asking about a policy, procedure, or institute resource.</span>
+                <span>Try asking about a reference, study resource, or shared procedure.</span>
               </div>
             ) : turns.map(({ question: asked, result }, index) => (
               <article className="knowledge-turn" key={`${index}-${asked}`}>
@@ -127,15 +127,15 @@ export const KnowledgePage: React.FC = () => {
                 )}
               </article>
             ))}
-            {isAsking && <p className="knowledge-thinking">Checking published institute sources…</p>}
+            {isAsking && <p className="knowledge-thinking">Checking published workspace sources…</p>}
           </div>
 
           {chatError && <p className="knowledge-error" role="alert">{chatError}</p>}
           <form className="knowledge-composer" onSubmit={(event) => void askQuestion(event)}>
             <textarea
               ref={inputRef}
-              aria-label="Ask about institute documents"
-              placeholder="Ask about a policy or procedure…"
+              aria-label="Ask about shared workspace documents"
+              placeholder="Ask about a shared reference…"
               rows={2}
               maxLength={2000}
               value={question}
@@ -149,14 +149,14 @@ export const KnowledgePage: React.FC = () => {
           <p className="knowledge-privacy-note">
             <ShieldCheck size={14} />
             {access?.ai_provider === 'offline'
-              ? 'Questions and source matching run locally against published institute material.'
+              ? 'Questions and source matching run locally against published workspace material.'
               : access?.ai_provider === 'groq'
                 ? 'Your question and relevant source excerpts are sent to the configured Groq AI service.'
                 : 'Your question and relevant source excerpts are processed by the configured AI service.'}
           </p>
         </section>
 
-        <aside className="knowledge-library-panel" aria-label="Published institute documents">
+        <aside className="knowledge-library-panel" aria-label="Published workspace documents">
           <div className="knowledge-panel-heading">
             <div className="knowledge-panel-icon"><FileText size={18} /></div>
             <div>
@@ -168,7 +168,7 @@ export const KnowledgePage: React.FC = () => {
           {isLoadingLibrary ? (
             <p className="knowledge-library-empty">Loading the published library…</p>
           ) : library.length === 0 ? (
-            <p className="knowledge-library-empty">No institute documents have been published yet.</p>
+            <p className="knowledge-library-empty">No workspace references have been published yet.</p>
           ) : (
             <ul className="knowledge-document-list">
               {library.map((document) => (

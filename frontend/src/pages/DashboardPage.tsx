@@ -123,7 +123,7 @@ export const DashboardPage: React.FC = () => {
       {/* Greeting Header */}
       <div className="dashboard-masthead" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
         <div className="dashboard-welcome">
-          <div className="dashboard-kicker"><span /> YOUR CAMPUS, IN ONE PLACE</div>
+          <div className="dashboard-kicker"><span /> YOUR STUDY LIFE, IN ONE PLACE</div>
           <h1 className="dashboard-title" style={{ fontSize: '1.875rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.03em' }}>
             {getGreeting()}, {user?.full_name?.split(' ')[0] || 'Student'}
           </h1>
@@ -229,7 +229,7 @@ export const DashboardPage: React.FC = () => {
               <CheckSquare size={18} color="var(--accent-primary)" />
               <h2 style={{ fontSize: '1.125rem', fontWeight: 700, color: '#ffffff' }}>Active Tasks</h2>
             </div>
-            <Link to="/tasks" style={{ fontSize: '0.8125rem', color: 'var(--accent-primary)', textDecoration: 'none', fontWeight: 600 }}>
+            <Link to="/app/tasks" style={{ fontSize: '0.8125rem', color: 'var(--accent-primary)', textDecoration: 'none', fontWeight: 600 }}>
               View all &rarr;
             </Link>
           </div>
@@ -289,7 +289,7 @@ export const DashboardPage: React.FC = () => {
               <CalendarDays size={18} color="var(--accent-secondary)" />
               <h2 style={{ fontSize: '1.125rem', fontWeight: 700, color: '#ffffff' }}>Upcoming Deadlines</h2>
             </div>
-            <Link to="/deadlines" style={{ fontSize: '0.8125rem', color: 'var(--accent-secondary)', textDecoration: 'none', fontWeight: 600 }}>
+            <Link to="/app/deadlines" style={{ fontSize: '0.8125rem', color: 'var(--accent-secondary)', textDecoration: 'none', fontWeight: 600 }}>
               View all &rarr;
             </Link>
           </div>
@@ -338,7 +338,7 @@ export const DashboardPage: React.FC = () => {
               <Bot size={18} color="var(--accent-primary)" />
               <h2 style={{ fontSize: '1.125rem', fontWeight: 700, color: '#ffffff' }}>AI Proposals Waiting for Approval</h2>
             </div>
-            <Link to="/inbox" style={{ fontSize: '0.8125rem', color: 'var(--accent-primary)', textDecoration: 'none', fontWeight: 600 }}>
+            <Link to="/app/inbox" style={{ fontSize: '0.8125rem', color: 'var(--accent-primary)', textDecoration: 'none', fontWeight: 600 }}>
               Review inbox &rarr;
             </Link>
           </div>
@@ -366,7 +366,7 @@ export const DashboardPage: React.FC = () => {
                     <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-main)' }}>{prop.title}</div>
                     <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>From: {prop.email_subject}</div>
                   </div>
-                  <Link to="/inbox" className="btn btn-primary btn-sm">
+                  <Link to="/app/inbox" className="btn btn-primary btn-sm">
                     Review
                   </Link>
                 </div>
@@ -382,7 +382,7 @@ export const DashboardPage: React.FC = () => {
               <Mail size={18} color="var(--text-muted)" />
               <h2 style={{ fontSize: '1.125rem', fontWeight: 700, color: '#ffffff' }}>Recent Academic Emails</h2>
             </div>
-            <Link to="/inbox" style={{ fontSize: '0.8125rem', color: 'var(--accent-primary)', textDecoration: 'none', fontWeight: 600 }}>
+            <Link to="/app/inbox" style={{ fontSize: '0.8125rem', color: 'var(--accent-primary)', textDecoration: 'none', fontWeight: 600 }}>
               Open inbox &rarr;
             </Link>
           </div>
@@ -392,7 +392,7 @@ export const DashboardPage: React.FC = () => {
               <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
                 Connect Gmail with read-only permissions to automatically detect assignments and deadlines.
               </p>
-              <Link to="/inbox" className="btn btn-secondary btn-sm">
+              <Link to="/app/inbox" className="btn btn-secondary btn-sm">
                 Connect Gmail
               </Link>
             </div>

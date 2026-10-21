@@ -6,6 +6,7 @@ from backend.app.core.config import settings
 from backend.app.core.logging import logger
 from backend.app.core.security import hash_password, verify_password, create_access_token
 from backend.app.models.user import User, UserPreference
+from backend.app.services.workspace_service import create_personal_workspace
 from backend.app.schemas.auth import UserRegister, UserLogin
 from backend.app.schemas.user_preference import UserPreferenceUpdate
 
@@ -31,6 +32,7 @@ class AuthService:
         )
         db.add(user)
         db.flush()  # get user.id
+        create_personal_workspace(db, user)
         
         # Initialize default user preferences
         preference = UserPreference(

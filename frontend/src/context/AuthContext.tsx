@@ -19,10 +19,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const authRequestId = useRef(0);
 
+  const initializeWorkspace = async () => {
+    const workspaces = await api.listWorkspaces();
+    const selectedId = api.getWorkspaceId();
+    const selectedWorkspace = workspaces.find((workspace) => workspace.id === selectedId);
+    if (!selectedWorkspace) {
+      api.setWorkspaceId(workspaces.find((workspace) => workspace.is_personal)?.id ?? null);
+    }
+  };
+
   const refreshUser = async () => {
     const requestId = ++authRequestId.current;
     try {
       const currentUser = await api.getMe();
+      await initializeWorkspace();
       if (requestId === authRequestId.current) {
         setUser(currentUser);
       }
@@ -30,6 +40,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (requestId === authRequestId.current) {
         setUser(null);
         api.clearToken();
+        api.setWorkspaceId(null);
       }
     } finally {
       if (requestId === authRequestId.current) {
@@ -54,6 +65,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const requestId = ++authRequestId.current;
     try {
       const res = await api.login({ email, password });
+      await initializeWorkspace();
       if (requestId === authRequestId.current) {
         setUser(res.user);
       }
@@ -75,6 +87,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await api.logout();
     } finally {
       setUser(null);
+      api.setWorkspaceId(null);
     }
   };
 

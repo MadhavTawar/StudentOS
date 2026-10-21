@@ -10,6 +10,9 @@ from backend.app.db.session import Base, get_db
 from backend.app import main as main_module
 from backend.app.main import app
 from backend.app.models.user import User
+from backend.app.models.workspace import WorkspaceMembership
+from backend.app.services.workspace_service import create_personal_workspace
+from backend.app.services.workspace_service import create_organization_workspace
 from backend.app.core.security import hash_password, create_access_token
 
 # Test In-Memory SQLite Engine
@@ -64,6 +67,8 @@ def test_user(db, test_password) -> User:
         is_active=True
     )
     db.add(user)
+    db.flush()
+    create_personal_workspace(db, user)
     db.commit()
     db.refresh(user)
     return user
@@ -78,6 +83,8 @@ def second_user(db) -> User:
         is_active=True
     )
     db.add(user)
+    db.flush()
+    create_personal_workspace(db, user)
     db.commit()
     db.refresh(user)
     return user
@@ -93,3 +100,14 @@ def auth_headers(test_user) -> dict:
 def second_auth_headers(second_user) -> dict:
     token = create_access_token(subject=second_user.id)
     return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture(scope="function")
+def shared_workspace_headers(db, test_user, second_user, auth_headers, second_auth_headers) -> tuple[dict, dict]:
+    workspace = create_organization_workspace(db, test_user, "Shared study group")
+    db.add(WorkspaceMembership(workspace_id=workspace.id, user_id=second_user.id, role="member"))
+    db.commit()
+    return (
+        {**auth_headers, "X-Workspace-ID": workspace.id},
+        {**second_auth_headers, "X-Workspace-ID": workspace.id},
+    )

@@ -16,13 +16,13 @@ def _embedding_model(model_name: str):
     except ImportError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Local institute embeddings are unavailable. Install backend requirements and restart.",
+            detail="Local workspace embeddings are unavailable. Install backend requirements and restart.",
         ) from exc
 
     try:
         return TextEmbedding(model_name=model_name)
     except Exception as exc:
-        logger.exception("Could not initialize the configured local institute embedding model.")
+        logger.exception("Could not initialize the configured local workspace embedding model.")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="The configured local embedding model is unavailable.",
@@ -37,7 +37,7 @@ class KnowledgeVectorStore:
         except ImportError as exc:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="The institute vector store is unavailable. Install backend requirements and restart.",
+                detail="The workspace vector store is unavailable. Install backend requirements and restart.",
             ) from exc
 
         path = Path(settings.KNOWLEDGE_VECTOR_DIR).expanduser().resolve()
@@ -53,10 +53,10 @@ class KnowledgeVectorStore:
                 embedding_function=None,
             )
         except Exception as exc:
-            logger.exception("Could not initialize the local institute vector store.")
+            logger.exception("Could not initialize the local workspace vector store.")
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="The local institute vector store could not be opened.",
+                detail="The local workspace vector store could not be opened.",
             ) from exc
 
     @staticmethod
@@ -65,7 +65,7 @@ class KnowledgeVectorStore:
         try:
             return [vector.tolist() for vector in model.embed(texts)]
         except Exception as exc:
-            logger.exception("Local institute embedding failed.")
+            logger.exception("Local workspace embedding failed.")
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Local document embedding failed. The document was not published.",
@@ -77,6 +77,7 @@ class KnowledgeVectorStore:
         *,
         document_id: str,
         version_id: str,
+        workspace_id: str,
         status_value: str,
     ) -> None:
         if not chunks:
@@ -97,6 +98,7 @@ class KnowledgeVectorStore:
                     {
                         "document_id": document_id,
                         "version_id": version_id,
+                        "workspace_id": workspace_id,
                         "page_start": chunk["page_start"] or 0,
                         "page_end": chunk["page_end"] or 0,
                         "status": status_value,
@@ -107,7 +109,7 @@ class KnowledgeVectorStore:
         except HTTPException:
             raise
         except Exception as exc:
-            logger.exception("Could not index institute document chunks.")
+            logger.exception("Could not index workspace document chunks.")
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="The document could not be indexed locally and remains unpublished.",
@@ -130,28 +132,48 @@ class KnowledgeVectorStore:
                     ],
                 )
         except Exception as exc:
-            logger.exception("Could not update institute vector lifecycle metadata.")
+            logger.exception("Could not update workspace vector lifecycle metadata.")
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="The local search index could not be updated.",
             ) from exc
 
-    def search(self, query: str, limit: int = 20) -> List[Dict[str, Any]]:
+    def set_version_workspace(self, version_id: str, workspace_id: str) -> None:
+        try:
+            result = self.collection.get(
+                where={"version_id": version_id},
+                include=["metadatas"],
+            )
+            ids = result.get("ids") or []
+            metadatas = result.get("metadatas") or []
+            if ids:
+                self.collection.update(
+                    ids=ids,
+                    metadatas=[{**metadata, "workspace_id": workspace_id} for metadata in metadatas],
+                )
+        except Exception as exc:
+            logger.exception("Could not migrate workspace ownership in the local knowledge index.")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="The local search index could not be migrated to workspace isolation.",
+            ) from exc
+
+    def search(self, query: str, workspace_id: str, limit: int = 20) -> List[Dict[str, Any]]:
         try:
             query_embedding = self._embed([query])[0]
             result = self.collection.query(
                 query_embeddings=[query_embedding],
                 n_results=limit,
-                where={"status": "published"},
+                where={"$and": [{"status": "published"}, {"workspace_id": workspace_id}]},
                 include=["distances", "metadatas", "documents"],
             )
         except HTTPException:
             raise
         except Exception as exc:
-            logger.exception("Institute knowledge search failed.")
+            logger.exception("Workspace knowledge search failed.")
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Institute knowledge search is temporarily unavailable.",
+                detail="Workspace knowledge search is temporarily unavailable.",
             ) from exc
 
         ids_by_query = result.get("ids") or []

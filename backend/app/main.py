@@ -10,6 +10,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from backend.app.core.config import settings
 from backend.app.core.logging import logger
 from backend.app.db.session import engine, Base
+from backend.app.db.migrations import migrate_legacy_knowledge_workspaces
 from backend.app.api.v1.router import api_router
 from backend.app.services.reminder_service import start_reminder_scheduler_task
 
@@ -94,6 +95,7 @@ async def lifespan(app: FastAPI):
     # Startup: Ensure tables exist
     logger.info("Initializing database tables...")
     Base.metadata.create_all(bind=engine)
+    migrate_legacy_knowledge_workspaces(engine)
     logger.info("Database initialized successfully.")
 
     # Start background scheduler

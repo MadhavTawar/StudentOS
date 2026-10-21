@@ -1,18 +1,13 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class KnowledgeAccessResponse(BaseModel):
     is_admin: bool
     can_manage_documents: bool
     ai_provider: str
-    admin_bootstrap_available: bool
-
-
-class BootstrapAdminRequest(BaseModel):
-    token: str = Field(min_length=1, max_length=512)
 
 
 class DocumentVersionResponse(BaseModel):
@@ -48,18 +43,6 @@ class KnowledgeLibraryItem(BaseModel):
     version_number: int
     page_count: int
     published_at: datetime
-
-
-class DocumentManagerRequest(BaseModel):
-    email: EmailStr
-
-
-class DocumentManagerResponse(BaseModel):
-    user_id: str
-    email: str
-    full_name: str
-    role: str = "document_manager"
-    granted_at: datetime
 
 
 class KnowledgeChatRequest(BaseModel):

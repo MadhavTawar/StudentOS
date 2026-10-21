@@ -1,14 +1,14 @@
 # StudentOS 🎓
 
-> **AI-Powered Student Productivity and Personal Academic Operating System**
+> **A personal productivity workspace for students**
 
-StudentOS helps university and college students manage academic communication, coursework assignments, upcoming examination deadlines, study plans, reminders, and everyday student responsibilities through one secure workspace powered by transparent AI guardrails.
+StudentOS helps students organize coursework, deadlines, study plans, reminders, and academic communication in one private account. Individuals can optionally create shared workspaces for collaborating on reference materials—without making personal coursework or Gmail data shared by default.
 
 ---
 
 ## 🌟 Key Features
 
-- **Personalized Academic Dashboard**: Real-time overview of active tasks, upcoming deadlines, overdue items, recent academic emails, and connection states.
+- **Personal Study Dashboard**: Real-time overview of active tasks, upcoming deadlines, overdue items, recent emails, and connection states.
 - **Task Management**: Comprehensive CRUD with priority tags (Urgent, High, Medium, Low), academic categories, due dates, estimated durations, and toggle completion.
 - **Academic Deadlines**: Chronological calendar tracking with automated duplicate detection, ambiguous date warnings, and task associations.
 - **Read-Only Gmail Integration**: Least-privilege OAuth 2.0 (`gmail.readonly`) integration with AES/Fernet encrypted token storage, untrusted preview sanitization, and disconnect support.
@@ -18,7 +18,9 @@ StudentOS helps university and college students manage academic communication, c
   - **Adversarial Prompt-Injection Defense**: Isolates untrusted email text, strips injection instructions, and flags suspicious directives.
   - Offline rule-based extraction is the default. An optional Groq chat-completions provider is available when explicitly enabled.
 - **Academic AI Assistant**: Grounded conversational assistant answering questions about your authorized academic context (*"What should I work on today?"*, *"Which deadlines are coming up?"*, *"Create a study plan for this week"*).
-- **Institute Knowledge Library**: Role-managed PDF/DOCX policies and references, local embeddings and vector search, published-version lifecycle, source citations, and explicit insufficient-evidence responses.
+- **Workspace Knowledge Library**: Private personal references and optionally shared PDF/DOCX libraries, workspace-scoped retrieval, published-version lifecycle, source citations, and explicit insufficient-evidence responses.
+- **Personal and Shared Workspaces**: Every account receives a private workspace. Optional organization workspaces can publish shared references; coursework, Gmail, reminders, and assistant context remain account-private.
+- **SaaS Billing Foundation**: Workspace-level plan/subscription records and billing status UI. No payment provider, paid plans, or prices are enabled yet.
 - **Persistent In-App Reminders**: Background single-process scheduler polling database intervals with duplicate alert suppression and customizable lead times.
 - **Privacy & Data Governance**: Transparent disclosures on local storage, data minimization, and one-click data clearance.
 
@@ -29,7 +31,7 @@ StudentOS helps university and college students manage academic communication, c
 | Layer | Technologies |
 | --- | --- |
 | **Frontend** | React 19, TypeScript, Vite 8, responsive StudentOS design system, Lucide React, React Router v7 |
-| **Backend** | Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2.0, SQLite (local development); tables are created at startup |
+| **Backend** | Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2.0, SQLite (local development); workspace membership and library access are validated server-side |
 | **Security** | Bcrypt password hashing, signed JWT session tokens, Fernet token encryption (AES-128-CBC + HMAC-SHA256), HttpOnly cookies, CORS whitelisting, CSRF state verification |
 | **AI Layer** | Offline rule-based assistant and local FastEmbed embeddings by default; optional Groq chat-completions provider |
 
@@ -96,7 +98,8 @@ Or start each service separately:
   npm run dev -- --port 5173
   ```
 
-Visit the application in your browser at: **`http://localhost:5173`**  
+Visit the application in your browser at: **`http://localhost:5173`**
+The public product page is at `/`; the signed-in workspace is at `/app`.
 Backend OpenAPI interactive documentation: **`http://localhost:8000/docs`**
 
 ### Test Gmail with your own account
@@ -144,27 +147,23 @@ GROQ_MODEL=openai/gpt-oss-20b
 
 Restart the backend after changing `.env`. When Groq is selected, email extraction sends the selected email's subject, sender, and snippet to Groq; assistant chat sends the user's question and relevant task/deadline details. This is disclosed in the Inbox and Assistant screens. Do not enable this provider if you do not want that data sent to Groq. The app validates structured extraction output, checks evidence against the source email, does not retry failed requests automatically, and still requires user review before creating tasks or deadlines. The default model is `openai/gpt-oss-20b`; set `GROQ_MODEL` to another model enabled for your Groq project if needed.
 
-### Institute knowledge library
+### Personal and shared workspaces
 
-The knowledge module is available to authenticated users. Students can browse published institute documents, ask evidence-grounded questions, and inspect server-validated citations. Administrators and document managers have a separate **Document desk** for processing, versioning, publishing, and archiving documents.
+New accounts receive a private personal workspace and a free plan record. Create an optional shared workspace from **Workspaces**, then generate a one-time seven-day invitation link. The invite is a bearer credential: anyone who has it can join, so only share it privately. Workspace members can read its published library; owners can upload, publish, replace, and archive shared references. Coursework, deadlines, Gmail, reminders, and personal assistant context remain scoped to the signed-in account.
 
-1. Generate a one-time administrator bootstrap secret in PowerShell:
+FastEmbed and Chroma provide local workspace-scoped retrieval. With `AI_PROVIDER=offline`, retrieval and excerpt answers run on the backend. With `AI_PROVIDER=groq`, the question and relevant published passages are sent to the configured Groq endpoint. See [the workspace knowledge guide](docs/KNOWLEDGE_BASE.md).
 
-   ```powershell
-   .\.venv\Scripts\python.exe -c "import secrets; print(secrets.token_urlsafe(48))"
-   ```
+### SaaS product foundations and launch limits
 
-2. Put the generated value in the private repository-root `.env` as `KNOWLEDGE_ADMIN_BOOTSTRAP_TOKEN`. Sign in to the StudentOS account intended to be the initial administrator, open **Document desk**, and claim the role using that secret. Public registration never grants staff access, and the bootstrap can only be claimed once. Remove `KNOWLEDGE_ADMIN_BOOTSTRAP_TOKEN` from `.env` and restart after the claim.
-3. The administrator can grant **Document manager** access to a user who has already registered. Document managers can upload valid PDF/DOCX files (15 MB default limit), inspect processing failures, publish a successfully indexed version, upload replacements, and archive documents. A previous published version stays current until its replacement is explicitly published.
-4. Students can open **Institute library**. Scanned PDFs without a text layer are not OCR-processed; DOCX source citations do not include page numbers. Files and vectors are stored outside frontend assets in `%USERPROFILE%\.studentos\knowledge` and `%USERPROFILE%\.studentos\chroma` by default.
+The app now has a public product landing page, open account registration, tenant-aware personal and shared workspaces, workspace membership, and workspace-level subscription records. Billing UI is informational only: there is no configured payment processor, no paid plan or price, and no charge can be made.
 
-FastEmbed runs embeddings locally after downloading the configured model on first use. With `AI_PROVIDER=offline`, question retrieval and excerpt answers stay local. With `AI_PROVIDER=groq`, the question and relevant published passages are sent to Groq for answer composition; the UI discloses this. See [the knowledge-base guide](docs/KNOWLEDGE_BASE.md) for configuration, lifecycle, and troubleshooting details.
+This is a locally runnable SaaS prototype, **not a production SaaS launch**. Before exposing it publicly, add email verification and account recovery, connect and test an email delivery provider, integrate a payment provider with signed webhooks, configure production PostgreSQL and versioned deployment migrations, deploy private object/vector storage with backups and retention controls, review legal/privacy obligations, and validate production secrets, HTTPS, CORS, and Google OAuth verification. Workspace invitation links are bearer tokens and are not email-verified.
 
 ---
 
 ## 🧪 Automated Testing
 
-StudentOS includes a test suite covering security primitives, authentication, task CRUD, cross-user isolation, deadline duplicate checks, Gmail OAuth state validation, AI extraction, and institute knowledge upload/access/lifecycle/citation behavior.
+StudentOS includes a test suite covering security primitives, authentication, task CRUD, cross-user isolation, workspace invitation and knowledge isolation, deadline duplicate checks, Gmail OAuth state validation, AI extraction, and knowledge lifecycle/citation behavior.
 
 ```powershell
 # Run the complete test suite
@@ -183,9 +182,11 @@ The backend test suite uses an isolated in-memory SQLite database and mocked Gma
 
 - Gmail OAuth, read-only inbox metadata sync, task/deadline CRUD, and offline AI proposal review are implemented. Gmail sync currently retrieves up to 20 inbox messages per request.
 - The AI extractor runs locally by default; the optional Groq provider is active when explicitly selected. Knowledge embeddings and vector search run locally, while Groq receives knowledge questions and retrieved passages only when configured.
-- Institute RAG is a bounded local MVP: PDF/DOCX only, no OCR, synchronous processing, no automated task creation, and no multi-node vector-store deployment.
+- Workspace RAG is a bounded local MVP: PDF/DOCX only, no OCR, synchronous processing, no automated task creation, and no multi-node vector-store deployment.
 - AI suggestions require explicit review. When a deadline has no confirmed date, enter one before approving it.
-- Database tables are created at application startup with SQLAlchemy `create_all`; Alembic is listed as a dependency, but migration scripts and upgrade workflow are not configured.
+- Database tables are created at application startup with SQLAlchemy `create_all`; an additive startup migration assigns legacy knowledge documents to their uploader's private workspace. A full versioned production migration and rollback workflow is not configured.
+- Account email ownership is not verified, self-service password recovery and account deletion are not implemented, and invitation delivery is not sent by email.
+- Workspace subscription records are billing-ready structure only. No billing provider, plan catalog, pricing, checkout, tax, or webhook processing is configured.
 - Reminders run in the backend process and cannot notify while the application is stopped. Run a single backend worker for local development.
 - Authentication rate limiting is in-memory and is not shared across multiple server processes.
 - Browser authentication uses an HttpOnly cookie, and cookie-authenticated writes require a trusted `Origin`. Legacy localStorage tokens are cleared on app startup. JWT sessions are not individually revoked on logout; a retained token can remain valid until expiry.
@@ -195,7 +196,7 @@ The backend test suite uses an isolated in-memory SQLite database and mocked Gma
 ## 📚 Complete Documentation Suite
 
 - [Architecture Design & Diagram](docs/architecture.md)
-- [Institute Knowledge Base Setup and Operations](docs/KNOWLEDGE_BASE.md)
+- [Workspace Knowledge Base Setup and Operations](docs/KNOWLEDGE_BASE.md)
 - [Pre-implementation Project Audit](docs/PROJECT_AUDIT.md)
 - [Product Requirements Document (PRD)](docs/prd.md)
 - [Technical Requirements Document (TRD)](docs/trd.md)
@@ -216,4 +217,4 @@ The backend test suite uses an isolated in-memory SQLite database and mocked Gma
 
 ## 📄 License
 
-MIT License. Built for students, educational communities, and productivity engineers.
+MIT License. Built for students and productivity-minded collaborators.

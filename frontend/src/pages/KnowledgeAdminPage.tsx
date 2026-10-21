@@ -1,11 +1,8 @@
 import React, { FormEvent, useCallback, useEffect, useState } from 'react';
-import { Archive, Download, FilePlus2, Library, ShieldCheck, UserRoundPlus } from 'lucide-react';
+import { Archive, Download, FilePlus2, Library } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
-import {
-  DocumentManager,
-  KnowledgeAccess,
-  KnowledgeDocument,
-} from '../types';
+import { KnowledgeAccess, KnowledgeDocument } from '../types';
 import './KnowledgeAdminPage.css';
 
 const errorText = (error: unknown) =>
@@ -14,13 +11,10 @@ const errorText = (error: unknown) =>
 export const KnowledgeAdminPage: React.FC = () => {
   const [access, setAccess] = useState<KnowledgeAccess | null>(null);
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
-  const [managers, setManagers] = useState<DocumentManager[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isBusy, setIsBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [managerEmail, setManagerEmail] = useState('');
-  const [bootstrapToken, setBootstrapToken] = useState('');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('General');
@@ -32,9 +26,6 @@ export const KnowledgeAdminPage: React.FC = () => {
     if (!currentAccess.can_manage_documents) return;
     const currentDocuments = await api.listKnowledgeDocuments();
     setDocuments(currentDocuments);
-    if (currentAccess.is_admin) {
-      setManagers(await api.listDocumentManagers());
-    }
   }, []);
 
   useEffect(() => {
@@ -111,14 +102,6 @@ export const KnowledgeAdminPage: React.FC = () => {
 
   const documentElement = () => window.document.createElement('a');
 
-  const grantManager = async (event: FormEvent) => {
-    event.preventDefault();
-    await runAction(async () => {
-      await api.grantDocumentManager(managerEmail);
-      setManagerEmail('');
-    }, 'Document-manager access granted.');
-  };
-
   if (isLoading) {
     return <div className="knowledge-admin-loading" role="status">Loading document desk…</div>;
   }
@@ -127,47 +110,14 @@ export const KnowledgeAdminPage: React.FC = () => {
     return (
       <section className="knowledge-admin-page">
         <header className="knowledge-admin-heading">
-          <span>INSTITUTE KNOWLEDGE</span>
-          <h1>Document desk</h1>
-          <p>Institute administrator access is required to manage official references.</p>
+          <span>SHARED WORKSPACE</span>
+          <h1>Library manager</h1>
+          <p>Only a workspace owner or admin can publish shared references.</p>
         </header>
-        {access?.admin_bootstrap_available ? (
-          <form
-            className="knowledge-admin-panel knowledge-bootstrap-form"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void runAction(async () => {
-                await api.bootstrapInstituteAdmin(bootstrapToken);
-                setBootstrapToken('');
-              }, 'Institute administrator access claimed successfully.');
-            }}
-          >
-            <div className="knowledge-admin-section-title">
-              <ShieldCheck size={18} />
-              <div><h2>Claim the initial administrator role</h2><p>This one-time setup can be completed only once.</p></div>
-            </div>
-            <label>
-              Administrator bootstrap secret
-              <input
-                type="password"
-                autoComplete="current-password"
-                value={bootstrapToken}
-                onChange={(event) => setBootstrapToken(event.target.value)}
-                required
-              />
-            </label>
-            <p className="knowledge-admin-helper">
-              Only use the secret supplied through your institute’s trusted setup channel. Public registration never grants staff access.
-            </p>
-            <button className="knowledge-admin-primary" type="submit" disabled={isBusy}>
-              {isBusy ? 'Verifying…' : 'Claim administrator access'}
-            </button>
-          </form>
-        ) : (
-          <div className="knowledge-admin-notice is-error" role="alert">
-            {error || 'You do not have permission to manage institute documents.'}
-          </div>
-        )}
+        <div className="knowledge-admin-notice" role="status">
+          {error || 'Switch to a workspace you own or administer, or create one from the workspace settings.'}
+          {' '}<Link to="/app/workspaces">Manage workspaces</Link>
+        </div>
         {error && <div className="knowledge-admin-notice is-error" role="alert">{error}</div>}
       </section>
     );
@@ -176,9 +126,9 @@ export const KnowledgeAdminPage: React.FC = () => {
   return (
     <section className="knowledge-admin-page">
       <header className="knowledge-admin-heading">
-        <span>INSTITUTE KNOWLEDGE</span>
-        <h1>Document desk</h1>
-        <p>Upload, review, publish, and archive official institute references.</p>
+        <span>SHARED WORKSPACE</span>
+        <h1>Library manager</h1>
+        <p>Upload, review, publish, and archive references for this workspace.</p>
       </header>
 
       {error && <div className="knowledge-admin-notice is-error" role="alert">{error}</div>}
@@ -226,7 +176,7 @@ export const KnowledgeAdminPage: React.FC = () => {
             <div><h2>Document lifecycle</h2><p>Published versions are searchable by students.</p></div>
           </div>
           {documents.length === 0 ? (
-            <p className="knowledge-admin-empty">No institute documents have been uploaded.</p>
+            <p className="knowledge-admin-empty">No shared references have been uploaded yet.</p>
           ) : (
             <div className="knowledge-admin-documents">
               {documents.map((document) => (
@@ -316,49 +266,6 @@ export const KnowledgeAdminPage: React.FC = () => {
         </section>
       </div>
 
-      {access.is_admin && (
-        <section className="knowledge-admin-panel knowledge-staff-panel">
-          <div className="knowledge-admin-section-title">
-            <ShieldCheck size={18} />
-            <div><h2>Document managers</h2><p>Only configured institute administrators can grant staff access.</p></div>
-          </div>
-          <form className="knowledge-manager-form" onSubmit={(event) => void grantManager(event)}>
-            <label htmlFor="knowledge-manager-email">Registered user email</label>
-            <div>
-              <input
-                id="knowledge-manager-email"
-                type="email"
-                value={managerEmail}
-                onChange={(event) => setManagerEmail(event.target.value)}
-                placeholder="staff@institute.edu"
-                required
-              />
-              <button type="submit" disabled={isBusy || !managerEmail.trim()}>
-                <UserRoundPlus size={16} /> Grant manager access
-              </button>
-            </div>
-          </form>
-          {managers.length > 0 && (
-            <ul className="knowledge-manager-list">
-              {managers.map((manager) => (
-                <li key={manager.user_id}>
-                  <span><strong>{manager.full_name}</strong><small>{manager.email}</small></span>
-                  <button
-                    type="button"
-                    disabled={isBusy}
-                    onClick={() => void runAction(
-                      async () => { await api.revokeDocumentManager(manager.email); },
-                      `Document-manager access revoked for ${manager.email}.`,
-                    )}
-                  >
-                    Revoke
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      )}
     </section>
   );
 };

@@ -44,8 +44,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
     HUGGINGFACE_API_KEY: str = ""
 
-    # Institute knowledge documents (local storage and local Chroma embeddings)
-    KNOWLEDGE_ADMIN_BOOTSTRAP_TOKEN: str = ""
+    # Workspace knowledge documents (local storage and local Chroma embeddings)
     KNOWLEDGE_STORAGE_DIR: str = "~/.studentos/knowledge"
     KNOWLEDGE_VECTOR_DIR: str = "~/.studentos/chroma"
     KNOWLEDGE_MAX_UPLOAD_BYTES: int = 15 * 1024 * 1024

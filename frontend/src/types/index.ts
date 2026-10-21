@@ -21,7 +21,6 @@ export interface KnowledgeAccess {
   is_admin: boolean;
   can_manage_documents: boolean;
   ai_provider: string;
-  admin_bootstrap_available: boolean;
 }
 
 export interface KnowledgeDocumentVersion {
@@ -80,6 +79,41 @@ export interface DocumentManager {
   full_name: string;
   role: 'document_manager';
   granted_at: string;
+}
+
+export interface Workspace {
+  id: string;
+  name: string;
+  slug: string;
+  workspace_type: 'personal' | 'organization';
+  is_personal: boolean;
+  role: 'owner' | 'admin' | 'member';
+  plan_code: string;
+  subscription_status: string;
+}
+
+export interface WorkspaceMember {
+  user_id: string;
+  email: string;
+  full_name: string;
+  role: 'owner' | 'admin' | 'member';
+  joined_at: string;
+}
+
+export interface WorkspaceInvitation {
+  workspace_id: string;
+  invited_email?: string | null;
+  token: string;
+  expires_at: string;
+}
+
+export interface WorkspaceBilling {
+  plan_code: string;
+  status: string;
+  billing_provider?: string | null;
+  current_period_end?: string | null;
+  cancel_at_period_end: boolean;
+  payment_provider_configured: boolean;
 }
 
 export interface AuthResponse {

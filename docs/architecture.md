@@ -2,14 +2,14 @@
 
 ## 1. System Overview
 
-StudentOS is designed as a **Modular Monolith** with clean domain boundaries, combining high developer velocity, operational simplicity, and strict security isolation for sensitive student data.
+StudentOS is a **Modular Monolith** SaaS prototype for individual student accounts with optional shared organization workspaces. Account-owned academic data stays private; workspace memberships authorize access to workspace-scoped published knowledge libraries.
 
 ```text
 
 +-------------------------------------------------------------------------+
 |                        Browser Client (SPA)                             |
 |  React 19 + TypeScript + Vite + responsive StudentOS design system       |
-|  Routes: Dashboard | Tasks | Deadlines | Inbox | Assistant | Knowledge   |
+|  Public landing | Account | Private study desk | Shared workspace library |
 +------------------------------------+------------------------------------+
                                      |
                        HTTPS / REST (v1) [JSON]
@@ -19,7 +19,7 @@ StudentOS is designed as a **Modular Monolith** with clean domain boundaries, co
 |  - Security Middleware: Nosniff, FrameGuard, CSRF Cookie Verification   |
 |  - Correlation ID Tracking & Request Duration Metrics                   |
 |  - IP/Email Sliding-Window Rate Limiter                                 |
-|  - User Ownership & Access Control Boundary                             |
+|  - Account Ownership & Workspace Membership Boundary                   |
 +---------+------------------+------------------+-----------------+-------+
           |                  |                  |                 |
 +---------v--------+ +-------v--------+ +-------v-------+ +-------v-------+
@@ -38,11 +38,11 @@ StudentOS is designed as a **Modular Monolith** with clean domain boundaries, co
 +----------------------------v--------------------------------------------+
 |                          Data Storage Layer                             |
 |  - SQLite (Local Development) / PostgreSQL (Production Target)          |
-|  - Users, Tasks, Deadlines, Reminders, OAuth, Knowledge Documents,      |
-|    Immutable Versions, Text Chunks, Roles, and Audit Events              |
+|  - Users, Workspaces, Memberships, Subscriptions, Tasks, Deadlines,    |
+|    Reminders, OAuth, Workspace Documents, Versions, Chunks, Audit      |
 +-------------------------------------------------------------------------+
 
-    Private institute files (outside frontend assets)
+    Private workspace files (outside frontend assets)
                  |                     |
          PDF / DOCX extraction    Local FastEmbed model
                  |                     |
@@ -66,11 +66,16 @@ We intentionally selected a modular monolith architecture. For student productiv
 
 The `BaseAIProvider` interface supports the deterministic local `OfflineRuleBasedProvider` and an optional Groq chat-completions provider. Offline processing is the default. When Groq is enabled, selected email metadata/snippets and assistant questions with the authenticated user's task/deadline context are sent to the configured Groq endpoint; the UI discloses this. OpenAI settings are reserved and not used. Provider errors are surfaced rather than silently falling back.
 
-### 2.4 Institute Knowledge Retrieval
+### 2.4 Workspace Knowledge Retrieval
 
-- The `/api/v1/knowledge` routes are part of the existing modular monolith. `UserRole` stores document-manager and institute-admin grants. Public registration never selects a role. An authenticated operator claims the single initial administrator role with `KNOWLEDGE_ADMIN_BOOTSTRAP_TOKEN`; the email address is not treated as proof of ownership.
+- Each account receives a private workspace. Optional organization workspaces use server-side memberships with owner/admin/member roles. `X-Workspace-ID` is checked against the authenticated user on each knowledge route; personal tasks, deadlines, reminders, Gmail, and assistant context stay user-scoped.
+- Organization invitation links are one-use, expiring bearer credentials stored as hashes. Email verification and invite delivery are not implemented, so links must be privately distributed.
 - Document content is extracted from validated PDF and DOCX uploads, split into bounded chunks, and retained in relational records alongside page references. Source files are named with server-generated storage keys under `KNOWLEDGE_STORAGE_DIR`, not under frontend static assets.
-- FastEmbed generates local CPU embeddings, and Chroma persists vectors under `KNOWLEDGE_VECTOR_DIR`. The first use may download the configured model; institute text is not sent to a hosted embedding API. If `AI_PROVIDER=groq`, retrieved passages and the question are sent to the configured Groq chat endpoint for answer composition, as disclosed in the UI.
+- FastEmbed generates local CPU embeddings, and Chroma persists vectors under `KNOWLEDGE_VECTOR_DIR`. The first use may download the configured model; text is embedded locally. If `AI_PROVIDER=groq`, retrieved passages and the question are sent to the configured Groq chat endpoint for answer composition, as disclosed in the UI.
 - SQL document/version publication state is authoritative. Search results are revalidated against published relational rows before model input, excerpts, or citations are returned. Publishing a replacement supersedes the previous version only after the new version has extracted and indexed successfully. Archiving removes it from library/search immediately at the relational authorization layer.
-- The knowledge path creates new SQL tables through the existing additive `Base.metadata.create_all()` startup. It does not alter or reset existing user/task tables; there is still no versioned Alembic migration workflow.
+- The knowledge path creates new SQLAlchemy tables through `Base.metadata.create_all()` and includes an additive compatibility migration for a workspace ownership column on knowledge documents. A versioned production migration/rollback workflow is not yet configured.
 - Extraction is synchronous and bounded for the local MVP. Scanned PDFs without a text layer are not OCR-processed, DOCX citations do not include page numbers, and the single-process local Chroma/SQLite deployment is not a multi-node search architecture.
+
+### 2.5 Subscription foundation
+
+Each workspace has a subscription record with plan, status, provider identifiers, and period fields. Workspaces currently start on an unpriced free record. No payment integration, checkout, webhook, or entitlement enforcement is active.

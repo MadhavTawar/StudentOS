@@ -96,7 +96,7 @@ export const SettingsPage: React.FC = () => {
           Settings & Privacy Controls
         </h1>
         <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-          Manage your account preferences, local data controls, and transparent privacy safeguards.
+          Manage your account preferences and understand how your workspace data is handled.
         </p>
       </div>
 
@@ -222,23 +222,30 @@ export const SettingsPage: React.FC = () => {
             <div style={{ fontWeight: 700, color: '#ffffff', marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <Lock size={16} color="var(--accent-warning)" /> How Are Tokens Stored?
             </div>
-            OAuth access and refresh tokens are <strong>encrypted using AES/Fernet encryption</strong> with a dedicated secret key located outside database storage. Raw credentials are never written to disk or logs.
+            OAuth access and refresh tokens are encrypted using Fernet with a server-configured key. Raw credentials are not shown in the app.
           </div>
 
           <div style={{ padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-card)' }}>
             <div style={{ fontWeight: 700, color: '#ffffff', marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <Bot size={16} color="var(--accent-primary)" /> How Does AI Processing Work?
             </div>
-            AI extraction operates strictly as a <strong>proposal generator</strong>. An extracted task or deadline is NEVER automatically committed into your task list without your explicit click on "Approve". When offline or with no API key, StudentOS uses a 100% local rule-based extractor that runs entirely on your local machine without sending text to any external server.
+            AI extraction creates proposals only; a task or deadline is not added until you approve it. The offline provider processes data on the StudentOS backend. If an external AI provider is configured, the relevant prompt and source text may be sent to that provider.
+          </div>
+
+          <div style={{ padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-card)' }}>
+            <div style={{ fontWeight: 700, color: '#ffffff', marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Database size={16} color="var(--accent-primary)" /> Personal and shared data
+            </div>
+            Coursework, reminders, Gmail data, and assistant context are private to your account. Only documents you publish in a shared workspace library are available to that workspace’s members.
           </div>
         </div>
 
         {/* Data Clearing Controls */}
         <div style={{ borderTop: '1px solid var(--border-card)', paddingTop: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
-            <div style={{ fontSize: '0.875rem', fontWeight: 700, color: '#ffffff' }}>Local Cached Data</div>
+            <div style={{ fontSize: '0.875rem', fontWeight: 700, color: '#ffffff' }}>Email Data Controls</div>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
-              Clear cached email previews and disconnect OAuth tokens from this workstation.
+              Clear stored email previews and disconnect the connected Google account.
             </div>
           </div>
           <Button variant="danger" size="sm" onClick={handleClearCachedEmails} icon={<Trash2 size={14} />}>

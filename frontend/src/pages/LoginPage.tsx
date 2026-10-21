@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { GraduationCap, Lock, Mail, ArrowRight, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/common/Button';
+import { api } from '../lib/api';
 
 export const LoginPage: React.FC = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -20,7 +22,13 @@ export const LoginPage: React.FC = () => {
 
     try {
       await login(email, password);
-      navigate('/');
+      const inviteToken = searchParams.get('invite');
+      if (inviteToken) {
+        await api.acceptWorkspaceInvitation(inviteToken);
+        navigate('/app/workspaces');
+      } else {
+        navigate('/app');
+      }
     } catch (err: any) {
       setError(err.message || 'Login failed. Please verify your credentials.');
     } finally {
@@ -73,7 +81,7 @@ export const LoginPage: React.FC = () => {
             Welcome back to Student<span style={{ color: 'var(--accent-primary)' }}>OS</span>
           </h1>
           <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>
-            Sign in to your academic productivity workspace
+            Sign in to your personal workspace
           </p>
         </div>
 

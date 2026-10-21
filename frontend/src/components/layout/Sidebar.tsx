@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   CheckSquare,
@@ -13,6 +13,7 @@ import {
   BookOpen,
   PanelLeftClose,
   PanelLeftOpen,
+  Users,
 } from 'lucide-react';
 import { api } from '../../lib/api';
 
@@ -31,44 +32,57 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const [collapsed, setCollapsed] = useState(false);
   const [showDocumentDesk, setShowDocumentDesk] = useState(false);
+  const [workspaces, setWorkspaces] = useState<{ id: string; name: string; is_personal: boolean }[]>([]);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState(api.getWorkspaceId() ?? '');
+  const navigate = useNavigate();
   useEffect(() => {
     let isCurrent = true;
-    api.getKnowledgeAccess()
-      .then((access) => {
+    Promise.all([api.listWorkspaces(), api.getKnowledgeAccess()])
+      .then(([availableWorkspaces, access]) => {
         if (isCurrent) {
-          setShowDocumentDesk(access.can_manage_documents || access.admin_bootstrap_available);
+          setWorkspaces(availableWorkspaces);
+          setActiveWorkspaceId(api.getWorkspaceId() ?? availableWorkspaces.find((item) => item.is_personal)?.id ?? '');
+          setShowDocumentDesk(access.can_manage_documents);
         }
       })
       .catch((error: unknown) => {
-        console.error('Could not load institute document access.', error);
+        console.error('Could not load workspace access.', error);
       });
     return () => {
       isCurrent = false;
     };
   }, []);
 
+  const handleWorkspaceChange = (workspaceId: string) => {
+    setActiveWorkspaceId(workspaceId);
+    api.setWorkspaceId(workspaceId);
+    navigate('/app/knowledge');
+  };
+
   const navItems = [
-    { name: 'Study desk', path: '/', icon: <LayoutDashboard size={19} /> },
-    { name: 'Coursework', path: '/tasks', icon: <CheckSquare size={19} /> },
-    { name: 'Calendar', path: '/deadlines', icon: <Calendar size={19} /> },
-    { name: 'Inbox', path: '/inbox', icon: <Mail size={19} /> },
-    { name: 'Institute library', path: '/knowledge', icon: <BookOpen size={19} /> },
+    { name: 'Study desk', path: '/app', icon: <LayoutDashboard size={19} /> },
+    { name: 'Coursework', path: '/app/tasks', icon: <CheckSquare size={19} /> },
+    { name: 'Calendar', path: '/app/deadlines', icon: <Calendar size={19} /> },
+    { name: 'Inbox', path: '/app/inbox', icon: <Mail size={19} /> },
+    { name: 'Shared library', path: '/app/knowledge', icon: <BookOpen size={19} /> },
     ...(showDocumentDesk
-      ? [{ name: 'Document desk', path: '/knowledge/manage', icon: <BookOpen size={19} /> }]
+      ? [{ name: 'Library manager', path: '/app/knowledge/manage', icon: <BookOpen size={19} /> }]
       : []),
     {
       name: 'Study guide',
-      path: '/assistant',
+      path: '/app/assistant',
       icon: <Bot size={19} />,
       badge: pendingProposalsCount > 0 ? `${pendingProposalsCount}` : undefined,
     },
     {
       name: 'Reminders',
-      path: '/reminders',
+      path: '/app/reminders',
       icon: <Bell size={19} />,
       badge: unreadNotifsCount > 0 ? `${unreadNotifsCount}` : undefined,
     },
-    { name: 'Preferences', path: '/settings', icon: <Settings size={19} /> },
+    { name: 'Preferences', path: '/app/settings', icon: <Settings size={19} /> },
+    { name: 'Workspaces', path: '/app/workspaces', icon: <Users size={19} /> },
+    { name: 'Plan & billing', path: '/app/billing', icon: <Sparkles size={19} /> },
   ];
 
   return (
@@ -84,7 +98,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="sidebar-brand-name">
             Student<span>OS</span>
           </div>
-          <div className="sidebar-brand-caption">CAMPUS FIELD NOTES</div>
+          <div className="sidebar-brand-caption">YOUR STUDY WORKSPACE</div>
         </div>
         <button
           type="button"
@@ -97,13 +111,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </button>
       </div>
 
+      {!collapsed && workspaces.length > 0 && (
+        <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--border-card)' }}>
+          <label htmlFor="workspace-switcher" className="sidebar-section-label">ACTIVE WORKSPACE</label>
+          <select
+            id="workspace-switcher"
+            className="input"
+            value={activeWorkspaceId}
+            onChange={(event) => handleWorkspaceChange(event.target.value)}
+            style={{ marginTop: '0.4rem', fontSize: '0.8125rem', padding: '0.55rem' }}
+          >
+            {workspaces.map((workspace) => (
+              <option key={workspace.id} value={workspace.id}>
+                {workspace.is_personal ? 'Personal · ' : ''}{workspace.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       <nav className="sidebar-nav" aria-label="Main navigation">
         <span className="sidebar-section-label">YOUR STUDY DESK</span>
         {navItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
-            end={item.path === '/'}
+            end={item.path === '/app'}
             onClick={onNavigate}
             title={collapsed ? item.name : undefined}
             className={({ isActive }) => `sidebar-link${isActive ? ' is-active' : ''}`}

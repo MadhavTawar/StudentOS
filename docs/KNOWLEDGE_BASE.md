@@ -1,107 +1,55 @@
-# Institute Knowledge Base
+# Workspace Knowledge Library
 
-## What it does
+## How it works
 
-The knowledge area provides one authenticated institute library and a source-grounded question interface. Administrators and document managers maintain official PDF/DOCX references. Students can search only content whose document and version are currently published. The model does not create tasks, deadlines, or other records from an answer.
+Each user starts with a private personal workspace. A user may create an organization workspace and invite collaborators with a one-time link. Published PDF/DOCX references are shared only inside the selected workspace. Coursework, deadlines, Gmail data, reminders, and personal assistant context remain scoped to the individual user.
 
-## Initial administrator setup
+The API resolves `X-Workspace-ID` against the authenticated user's membership on every knowledge request. Omitting the header selects that user's personal workspace. A workspace ID alone is never treated as authorization. Owners can manage the workspace library; members can browse and ask questions about currently published documents.
 
-All public registrations remain students. Email addresses are not treated as proof of identity because the existing registration flow does not verify ownership.
+## Creating and joining a workspace
 
-1. From the repository root, generate a secret:
+1. Register or sign in to StudentOS.
+2. Open **Workspaces**, create a shared workspace, and use **Generate one-time invite link**.
+3. Share the resulting URL privately. The link is a bearer credential: anyone who has it can join once before its seven-day expiry. It is stored as a hash, consumed on acceptance, and invite generation is rate-limited.
+4. A recipient can create an account or sign in from the invite page. After joining, select the shared workspace in the sidebar. The shared library and its manager are scoped to that selection.
 
-   ```powershell
-   .\.venv\Scripts\python.exe -c "import secrets; print(secrets.token_urlsafe(48))"
-   ```
+Email delivery is not configured. Email ownership is not verified by the current registration flow, so invitation links must be handled as secrets. Add verified-email delivery before relying on identity-bound invitations.
 
-2. Add the output to the private `.env`:
+## Documents and retrieval
 
-   ```dotenv
-   KNOWLEDGE_ADMIN_BOOTSTRAP_TOKEN=replace-with-generated-value
-   ```
+Workspace owners upload and manage references from **Library manager**. The backend validates PDF/DOCX structure, file size, archive safety, extracted text limits, and creates randomized storage keys outside frontend assets. Text is chunked and indexed in Chroma with a workspace ID in vector metadata.
 
-   Keep the value at least 32 characters. Do not paste it into chat, commit it, or add it to the frontend.
-3. Start StudentOS and sign in to the account intended to become the administrator. Open **Document desk** and claim the one-time administrator role with the secret.
-4. Remove the token from `.env` and restart the backend. The grant is stored in the relational database. Only the initial administrator can add/revoke document managers; managers cannot assign staff roles.
+Only versions that are currently published in SQL are eligible for download, retrieval, answer composition, and citations. SQL is authoritative; vector results are rechecked against the selected workspace, publication status, and matching version before use. Replacements do not take effect until explicitly published. Archiving removes the reference from the shared library and search.
 
-The database permits one initial administrator. Recovery of a lost administrator account currently requires a trusted database operator to restore the role; there is no public or self-service escalation route.
+FastEmbed downloads the configured model on first use and runs local embeddings. `AI_PROVIDER=offline` returns evidence-grounded excerpts on the backend. When `AI_PROVIDER=groq`, the question and selected published passages are sent to the configured Groq endpoint for answer composition; the UI discloses this. Provider failures are surfaced.
 
-## Storage and configuration
+Scanned PDFs without a text layer are unsupported; no OCR is provided. DOCX citations do not include page numbers. Processing is synchronous, files and vectors are not encrypted at rest by the application, and there is no retention-purge workflow.
+
+## Data and configuration
 
 | Setting | Default | Purpose |
 |---|---|---|
-| `KNOWLEDGE_STORAGE_DIR` | `~/.studentos/knowledge` | Private original source files |
-| `KNOWLEDGE_VECTOR_DIR` | `~/.studentos/chroma` | Persistent local Chroma vector index |
-| `KNOWLEDGE_MAX_UPLOAD_BYTES` | `15728640` | Maximum individual file size (15 MiB) |
-| `KNOWLEDGE_MAX_PAGES` | `300` | Maximum pages in a PDF |
-| `KNOWLEDGE_MAX_EXTRACTED_CHARS` | `1000000` | Maximum extracted text size |
-| `KNOWLEDGE_CHUNK_SIZE` | `1200` | Approximate maximum characters per chunk |
-| `KNOWLEDGE_CHUNK_OVERLAP` | `160` | Character overlap for adjacent chunks |
-| `KNOWLEDGE_MAX_DISTANCE` | `0.65` | Maximum cosine distance accepted for a retrieved result |
-| `KNOWLEDGE_EMBEDDING_MODEL` | `BAAI/bge-small-en-v1.5` | FastEmbed model identifier for local embeddings |
+| `KNOWLEDGE_STORAGE_DIR` | `~/.studentos/knowledge` | Private uploaded source files |
+| `KNOWLEDGE_VECTOR_DIR` | `~/.studentos/chroma` | Persistent Chroma index |
+| `KNOWLEDGE_MAX_UPLOAD_BYTES` | `15728640` | Maximum file size (15 MiB) |
+| `KNOWLEDGE_MAX_PAGES` | `300` | Maximum PDF page count |
+| `KNOWLEDGE_MAX_EXTRACTED_CHARS` | `1000000` | Maximum extracted text |
+| `KNOWLEDGE_CHUNK_SIZE` | `1200` | Approximate chunk size |
+| `KNOWLEDGE_CHUNK_OVERLAP` | `160` | Adjacent chunk overlap |
+| `KNOWLEDGE_MAX_DISTANCE` | `0.65` | Maximum accepted cosine distance |
+| `KNOWLEDGE_EMBEDDING_MODEL` | `BAAI/bge-small-en-v1.5` | FastEmbed model identifier |
 
-On Windows the default directories resolve below `%USERPROFILE%\.studentos\`. Override them in `.env` for another private disk or data volume. Keep both outside `frontend/public`, any static web root, and source control. The application does not encrypt these files or the vector database at rest; secure the host and backups.
+On Windows, default paths resolve below `%USERPROFILE%\.studentos\`. Keep data outside the frontend public directory and back it up with the relational database. Legacy knowledge documents are assigned to the uploader's private workspace during the additive startup migration; existing Chroma metadata is updated to match that workspace.
 
-FastEmbed downloads the configured model the first time the system embeds text. After download, embedding and vector search execute locally. A model download or local Chroma failure is surfaced; an upload cannot be published until its extraction and indexing succeed.
+## Known operational limits
 
-## Document lifecycle
+- The local MVP uses SQLAlchemy `create_all` plus an additive one-time compatibility migration. It does not yet have a reviewed, versioned deployment migration/rollback workflow.
+- Chroma and source files use a local filesystem by default; this is not a multi-instance SaaS storage architecture.
+- No background indexing queue, OCR, retention controls, or hard-delete interface is included.
+- The synthetic retrieval evaluation does not measure answer factuality or tenant isolation; those behaviors have focused API tests.
 
-1. An authorized manager selects a PDF or DOCX and adds its title/category/description. Request-body and file-size limits apply before expensive parsing.
-2. The backend validates extension, signature/archive structure, file size, and relevant page/text limits. It assigns a random storage key; the submitted filename is display metadata only.
-3. PyMuPDF extracts text from each PDF page. `python-docx` extracts paragraphs and table text. DOCX pagination is not represented. Scanned PDFs with no text layer fail clearly; OCR is not included.
-4. Extracted text is split into overlapping chunks. Chunks, page references, SHA-256 digest, uploader, and version state are stored in SQL. Local embeddings and chunk IDs are written to Chroma. The version becomes `ready` only after indexing succeeds.
-5. A manager explicitly publishes a ready version. Publishing makes it the current version and marks the previous one superseded. An upload or processing failure never replaces the current published version.
-6. Archiving changes SQL publication state first. Student library/search/download authorization checks SQL and immediately excludes that document even if its old vectors remain in the local index.
-
-Successfully processed duplicate content is rejected by SHA-256. Failed uploads can be retried. Files, chunks, and vectors are retained for audit/history; no hard-delete or retention-purge feature is provided.
-
-## Roles and access boundaries
-
-- **Student:** public registration default; browse published library, ask questions, and download only currently published source versions.
-- **Document manager:** role assigned/revoked by the institute administrator; upload, inspect all versions, publish, archive, and download management documents.
-- **Institute administrator:** one-time bootstrap role; all manager capabilities plus staff role assignment.
-
-The React navigation only reflects role access for usability. Every management, download, and lifecycle action independently enforces authorization in FastAPI. Chroma metadata is a retrieval filter, never an authorization source.
-
-## Answers, citations, and provider privacy
-
-The chat service retrieves candidate chunks from Chroma, then joins their IDs to relational chunk/document/version rows. It passes only matching chunks from documents and versions still marked published. Source IDs, title, version, page range, and excerpt in the response are constructed by the server from those SQL rows; model-generated citation IDs are not trusted. Results over the configured distance threshold are omitted. If no authorized evidence remains, the service returns an explicit insufficient-evidence answer and makes no model call.
-
-Known instruction-like content in either a question or a candidate chunk is rejected/omitted. The provider prompt treats all retrieved text as untrusted source data and forbids invented dates/policies, citation fabrication, and action claims. This is defense-in-depth, not a guarantee against prompt injection. If relevant publications conflict, the answer should explain the conflict; the offline mode instead returns relevant excerpts and directs students to confirm disagreements with the institute.
-
-- With `AI_PROVIDER=offline`, the question, retrieval, and excerpt-based answer remain local.
-- With `AI_PROVIDER=groq`, the question and selected published source passages are sent to the configured Groq chat-completions endpoint for answer composition. The knowledge page discloses this. Do not enable Groq if institute content must not leave the host.
-- Provider errors are surfaced to the requester; the system does not silently fall back to an unsupported answer.
-
-## Safe schema updates
-
-The current backend has no versioned Alembic migration history. The knowledge feature adds new SQLAlchemy tables and indexes through the app's existing `Base.metadata.create_all()` startup; it does not add or alter columns in existing user/task tables and must not reset the database. The test client points application startup to the isolated in-memory test engine so tests do not write knowledge tables into the developer's `studentos.db`.
-
-Back up the database before upgrading. A production rollout still needs a versioned migration/rollback process, private persistent file/vector backups, access monitoring, and a reviewed retention policy.
-
-## Synthetic retrieval evaluation
-
-Run a small semantic retrieval check using only synthetic policies and questions:
+Run the synthetic retrieval evaluation with:
 
 ```powershell
 .\.venv\Scripts\python.exe -m backend.app.evaluations.knowledge_rag_eval
 ```
-
-The first run can download the configured FastEmbed model. The evaluator embeds four synthetic passages and questions in memory, computes cosine ranking, and measures Recall@3 and mean reciprocal rank. It does not access Chroma, the app database, `.env` credentials, real institute documents, or student records. Ranking metrics do not measure answer factuality, citation correctness, access-control security, or model prompt-injection resistance; those have separate tests and controls.
-
-The bundled four-question synthetic set measured **Recall@3 100%** and **MRR 1.000** with `BAAI/bge-small-en-v1.5` in the current local run. This is a smoke baseline on a deliberately small, synthetic corpus, not evidence of quality on institute content.
-
-## Troubleshooting
-
-| Symptom | Check |
-|---|---|
-| No **Document desk** link | Configure the bootstrap secret, restart, and sign in as the account that will claim the initial administrator role. After the claim, the link appears for admins and assigned managers. |
-| Bootstrap returns `503` | Set a non-empty token of at least 32 characters in the backend `.env`; restart the backend. |
-| Bootstrap returns `409` | An initial administrator is already stored. A database owner must handle recovery if that account is lost. |
-| Upload fails with `415` | Use an actual PDF/DOCX whose file signature/container matches its extension. |
-| Upload fails with `422` | Check archive integrity, PDF password protection, searchable text, and document extraction limits. |
-| Upload fails with `413` | Check the 15 MiB file limit, PDF page limit, and extracted-text limit in `.env`. |
-| Version remains failed/unpublished | Read the manager-visible error. Verify private disk access, install dependencies with `pip install -r backend\requirements.txt`, check local model download/cache access, and retry with a valid file. |
-| Library is empty after upload | New versions are not public until a manager explicitly publishes a `ready` version. |
-| Chat says evidence is insufficient | Confirm a current version is published, refine the question, and review the relevant passages. Adjust the cosine-distance threshold only after evaluation. |
-| Chroma/vector-store unavailable | Confirm `KNOWLEDGE_VECTOR_DIR` is writable and private, then restart. Do not delete the vector directory unless a trusted operator intends to rebuild the index from source files. |

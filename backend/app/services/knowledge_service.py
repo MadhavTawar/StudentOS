@@ -1,5 +1,4 @@
 import hashlib
-import hmac
 import json
 import re
 import uuid
@@ -13,7 +12,6 @@ import pymupdf
 from docx import Document as DocxDocument
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy.exc import IntegrityError
 
 from backend.app.core.config import settings
 from backend.app.core.logging import logger
@@ -22,11 +20,10 @@ from backend.app.models.knowledge import (
     KnowledgeDocument,
     KnowledgeDocumentChunk,
     KnowledgeDocumentVersion,
-    UserRole,
 )
 from backend.app.models.user import User
+from backend.app.models.workspace import WorkspaceMembership
 from backend.app.schemas.knowledge import (
-    DocumentManagerResponse,
     DocumentVersionResponse,
     KnowledgeChatResponse,
     KnowledgeCitation,
@@ -39,80 +36,33 @@ from backend.app.services.knowledge_vector_store import KnowledgeVectorStore
 PDF_MEDIA_TYPE = "application/pdf"
 DOCX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 INSUFFICIENT_EVIDENCE_ANSWER = (
-    "I couldn't find published institute material that supports an answer to that question. "
-    "Try a more specific question or contact your institute."
+    "I couldn't find published workspace material that supports an answer to that question. "
+    "Try a more specific question or ask a workspace owner."
 )
 
 
-def is_institute_admin(db: Session, user: User) -> bool:
+def is_workspace_admin(db: Session, user: User, workspace_id: str) -> bool:
     return (
-        db.query(UserRole.id)
-        .filter(UserRole.user_id == user.id, UserRole.role == "institute_admin")
+        db.query(WorkspaceMembership.id)
+        .filter(
+            WorkspaceMembership.user_id == user.id,
+            WorkspaceMembership.workspace_id == workspace_id,
+            WorkspaceMembership.role.in_(("owner", "admin")),
+        )
         .first()
         is not None
     )
 
 
-def admin_bootstrap_available(db: Session) -> bool:
-    return bool(settings.KNOWLEDGE_ADMIN_BOOTSTRAP_TOKEN.strip()) and (
-        db.query(UserRole.id).filter(UserRole.role == "institute_admin").first() is None
-    )
+def can_manage_documents(db: Session, user: User, workspace_id: str) -> bool:
+    return is_workspace_admin(db, user, workspace_id)
 
 
-def bootstrap_institute_admin(db: Session, actor: User, token: str) -> None:
-    configured_token = settings.KNOWLEDGE_ADMIN_BOOTSTRAP_TOKEN
-    if len(configured_token) < 32:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Set a bootstrap token containing at least 32 characters before claiming institute administrator access.",
-        )
-    if not admin_bootstrap_available(db):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="The institute administrator role has already been claimed.",
-        )
-    if not hmac.compare_digest(token.encode("utf-8"), configured_token.encode("utf-8")):
+def require_document_manager(db: Session, user: User, workspace_id: str) -> None:
+    if not can_manage_documents(db, user, workspace_id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="The administrator bootstrap token is invalid.",
-        )
-
-    db.add(UserRole(user_id=actor.id, role="institute_admin", granted_by=actor.id))
-    _audit(db, actor, "institute_admin_bootstrapped", "user", actor.id)
-    try:
-        db.commit()
-    except IntegrityError as exc:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="The institute administrator role has already been claimed.",
-        ) from exc
-
-
-def can_manage_documents(db: Session, user: User) -> bool:
-    if is_institute_admin(db, user):
-        return True
-    return (
-        db.query(UserRole.id)
-        .filter(UserRole.user_id == user.id, UserRole.role == "document_manager")
-        .first()
-        is not None
-    )
-
-
-def require_document_manager(db: Session, user: User) -> None:
-    if not can_manage_documents(db, user):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="A document-manager role is required.",
-        )
-
-
-def require_institute_admin(db: Session, user: User) -> None:
-    if not is_institute_admin(db, user):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="An institute administrator is required.",
+            detail="Workspace owner or admin access is required.",
         )
 
 
@@ -138,10 +88,10 @@ def _resolve_storage_root() -> Path:
     try:
         root.mkdir(parents=True, exist_ok=True)
     except OSError as exc:
-        logger.exception("Could not open the configured private institute document directory.")
+        logger.exception("Could not open the configured private workspace document directory.")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Private institute document storage is unavailable.",
+            detail="Private workspace document storage is unavailable.",
         ) from exc
     return root
 
@@ -165,7 +115,7 @@ def _storage_path(storage_key: str) -> Path:
 def _safe_filename(filename: str) -> str:
     name = PurePosixPath(filename.replace("\\", "/")).name
     name = re.sub(r"[\x00-\x1f\x7f]", "", name).strip()
-    return name[:255] or "institute-document"
+    return name[:255] or "workspace-document"
 
 
 def _validate_and_identify_file(data: bytes, filename: str) -> Tuple[str, str]:
@@ -371,6 +321,7 @@ def upload_document(
     data: bytes,
     filename: str,
     *,
+    workspace_id: str,
     title: Optional[str] = None,
     description: str = "",
     category: str = "General",
@@ -382,6 +333,7 @@ def upload_document(
     duplicate = db.query(KnowledgeDocumentVersion.id).filter(
         KnowledgeDocumentVersion.sha256 == digest,
         KnowledgeDocumentVersion.status.in_(("ready", "published", "superseded")),
+        KnowledgeDocumentVersion.document.has(KnowledgeDocument.workspace_id == workspace_id),
     ).first()
     if duplicate is not None:
         raise HTTPException(
@@ -393,7 +345,10 @@ def upload_document(
         document = (
             db.query(KnowledgeDocument)
             .options(joinedload(KnowledgeDocument.versions))
-            .filter(KnowledgeDocument.id == document_id)
+            .filter(
+                KnowledgeDocument.id == document_id,
+                KnowledgeDocument.workspace_id == workspace_id,
+            )
             .first()
         )
         if document is None:
@@ -416,6 +371,7 @@ def upload_document(
             )
         document = KnowledgeDocument(
             title=normalized_title,
+            workspace_id=workspace_id,
             description=description.strip(),
             category=normalized_category,
             status="draft",
@@ -433,10 +389,10 @@ def upload_document(
             stored_file.write(data)
     except OSError as exc:
         db.rollback()
-        logger.exception("Could not store an institute document.")
+        logger.exception("Could not store a workspace document.")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Private institute document storage could not save the upload.",
+            detail="Private workspace document storage could not save the upload.",
         ) from exc
 
     version = KnowledgeDocumentVersion(
@@ -482,6 +438,7 @@ def upload_document(
             chunks,
             document_id=document_pk,
             version_id=version_pk,
+            workspace_id=workspace_id,
             status_value="ready",
         )
         version = db.query(KnowledgeDocumentVersion).filter_by(id=version_pk).first()
@@ -505,7 +462,7 @@ def upload_document(
         raise
     except Exception as exc:
         _mark_processing_failed(db, actor, version_pk, document_pk, "Unexpected processing failure.")
-        logger.exception("Unexpected institute document processing failure.")
+        logger.exception("Unexpected workspace document processing failure.")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Institute document processing failed; this version remains unpublished.",
@@ -547,16 +504,17 @@ def serialize_document(document: KnowledgeDocument) -> KnowledgeDocumentResponse
     )
 
 
-def list_documents(db: Session) -> List[KnowledgeDocument]:
+def list_documents(db: Session, workspace_id: str) -> List[KnowledgeDocument]:
     return (
         db.query(KnowledgeDocument)
+        .filter(KnowledgeDocument.workspace_id == workspace_id)
         .options(joinedload(KnowledgeDocument.versions))
         .order_by(KnowledgeDocument.updated_at.desc())
         .all()
     )
 
 
-def list_published_library(db: Session) -> List[KnowledgeLibraryItem]:
+def list_published_library(db: Session, workspace_id: str) -> List[KnowledgeLibraryItem]:
     rows = (
         db.query(KnowledgeDocument, KnowledgeDocumentVersion)
         .join(
@@ -565,6 +523,7 @@ def list_published_library(db: Session) -> List[KnowledgeLibraryItem]:
         )
         .filter(
             KnowledgeDocument.status == "published",
+            KnowledgeDocument.workspace_id == workspace_id,
             KnowledgeDocumentVersion.status == "published",
         )
         .order_by(KnowledgeDocument.category, KnowledgeDocument.title)
@@ -585,8 +544,14 @@ def list_published_library(db: Session) -> List[KnowledgeLibraryItem]:
     ]
 
 
-def publish_version(db: Session, actor: User, document_id: str, version_id: str) -> KnowledgeDocument:
-    document = db.query(KnowledgeDocument).filter_by(id=document_id).first()
+def publish_version(
+    db: Session,
+    actor: User,
+    document_id: str,
+    version_id: str,
+    workspace_id: str,
+) -> KnowledgeDocument:
+    document = db.query(KnowledgeDocument).filter_by(id=document_id, workspace_id=workspace_id).first()
     version = db.query(KnowledgeDocumentVersion).filter_by(id=version_id, document_id=document_id).first()
     if document is None or version is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document version not found.")
@@ -632,8 +597,8 @@ def publish_version(db: Session, actor: User, document_id: str, version_id: str)
     )
 
 
-def archive_document(db: Session, actor: User, document_id: str) -> KnowledgeDocument:
-    document = db.query(KnowledgeDocument).filter_by(id=document_id).first()
+def archive_document(db: Session, actor: User, document_id: str, workspace_id: str) -> KnowledgeDocument:
+    document = db.query(KnowledgeDocument).filter_by(id=document_id, workspace_id=workspace_id).first()
     if document is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
     versions = db.query(KnowledgeDocumentVersion).filter_by(document_id=document.id).all()
@@ -658,72 +623,27 @@ def archive_document(db: Session, actor: User, document_id: str) -> KnowledgeDoc
     )
 
 
-def grant_document_manager(db: Session, actor: User, email: str) -> DocumentManagerResponse:
-    target = db.query(User).filter(User.email == email.strip().lower()).first()
-    if target is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No registered user has that email.")
-    if is_institute_admin(db, target):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Configured institute administrators do not need a document-manager assignment.",
-        )
-    assignment = db.query(UserRole).filter_by(user_id=target.id, role="document_manager").first()
-    if assignment is None:
-        assignment = UserRole(user_id=target.id, role="document_manager", granted_by=actor.id)
-        db.add(assignment)
-        _audit(db, actor, "document_manager_granted", "user", target.id, {"email": target.email})
-        db.commit()
-        db.refresh(assignment)
-    return DocumentManagerResponse(
-        user_id=target.id,
-        email=target.email,
-        full_name=target.full_name,
-        granted_at=assignment.created_at,
-    )
-
-
-def revoke_document_manager(db: Session, actor: User, email: str) -> None:
-    target = db.query(User).filter(User.email == email.strip().lower()).first()
-    if target is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No registered user has that email.")
-    assignment = db.query(UserRole).filter_by(user_id=target.id, role="document_manager").first()
-    if assignment is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document-manager assignment not found.")
-    db.delete(assignment)
-    _audit(db, actor, "document_manager_revoked", "user", target.id, {"email": target.email})
-    db.commit()
-
-
-def list_document_managers(db: Session) -> List[DocumentManagerResponse]:
-    rows = (
-        db.query(UserRole, User)
-        .join(User, User.id == UserRole.user_id)
-        .filter(UserRole.role == "document_manager")
-        .order_by(User.email)
-        .all()
-    )
-    return [
-        DocumentManagerResponse(
-            user_id=user.id,
-            email=user.email,
-            full_name=user.full_name,
-            granted_at=assignment.created_at,
-        )
-        for assignment, user in rows
-    ]
-
-
-def download_version(db: Session, actor: User, document_id: str, version_id: str) -> Tuple[Path, str]:
+def download_version(
+    db: Session,
+    actor: User,
+    document_id: str,
+    version_id: str,
+    workspace_id: str,
+) -> Tuple[Path, str]:
     row = (
         db.query(KnowledgeDocumentVersion, KnowledgeDocument)
         .join(KnowledgeDocument, KnowledgeDocument.id == KnowledgeDocumentVersion.document_id)
-        .filter(KnowledgeDocument.id == document_id, KnowledgeDocumentVersion.id == version_id)
+        .filter(
+            KnowledgeDocument.id == document_id,
+            KnowledgeDocument.workspace_id == workspace_id,
+            KnowledgeDocumentVersion.id == version_id,
+        )
         .first()
     )
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document version not found.")
     version, document = row
-    if not can_manage_documents(db, actor) and not (
+    if not can_manage_documents(db, actor, workspace_id) and not (
         document.status == "published" and version.status == "published"
     ):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document version not found.")
@@ -739,7 +659,7 @@ def download_version(db: Session, actor: User, document_id: str, version_id: str
     return path, version.original_filename
 
 
-async def answer_question(db: Session, question: str) -> KnowledgeChatResponse:
+async def answer_question(db: Session, question: str, workspace_id: str) -> KnowledgeChatResponse:
     safe_question, suspicious = sanitize_and_check_injection(question.strip())
     if suspicious:
         raise HTTPException(
@@ -747,7 +667,7 @@ async def answer_question(db: Session, question: str) -> KnowledgeChatResponse:
             detail="Instruction-like content is not accepted as a knowledge question.",
         )
 
-    vector_results = KnowledgeVectorStore().search(safe_question, limit=24)
+    vector_results = KnowledgeVectorStore().search(safe_question, workspace_id=workspace_id, limit=24)
     candidate_ids = [item["id"] for item in vector_results]
     if not candidate_ids:
         return KnowledgeChatResponse(answer=INSUFFICIENT_EVIDENCE_ANSWER, insufficient_evidence=True)
@@ -759,6 +679,7 @@ async def answer_question(db: Session, question: str) -> KnowledgeChatResponse:
         .filter(
             KnowledgeDocumentChunk.id.in_(candidate_ids),
             KnowledgeDocument.status == "published",
+            KnowledgeDocument.workspace_id == workspace_id,
             KnowledgeDocumentVersion.status == "published",
         )
         .all()

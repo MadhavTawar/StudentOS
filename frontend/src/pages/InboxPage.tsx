@@ -205,8 +205,8 @@ export const InboxPage: React.FC = () => {
       {!status?.is_connected ? (
         <EmptyState
           icon={<Mail size={36} />}
-          title="Connect your university Gmail"
-          description="Link your university mailbox with read-only permissions to scan course announcements, assignments, and placement deadlines."
+          title="Connect your Gmail"
+          description="Link a mailbox with read-only permissions to find messages that may contain tasks and deadlines."
           action={
             <Button variant="primary" onClick={handleConnectGmail} icon={<Mail size={16} />}>
               Connect Gmail (Read-Only)

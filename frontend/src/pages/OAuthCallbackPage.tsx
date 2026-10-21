@@ -28,7 +28,7 @@ export const OAuthCallbackPage: React.FC = () => {
     }
 
     api.sendGmailCallback(code, state)
-      .then(() => navigate('/inbox', { replace: true }))
+      .then(() => navigate('/app/inbox', { replace: true }))
       .catch((callbackError: Error) => {
         setError(callbackError.message || 'Could not connect your Gmail account.');
       });
@@ -44,7 +44,7 @@ export const OAuthCallbackPage: React.FC = () => {
           {error || 'Completing secure read-only authorization.'}
         </p>
         {error && (
-          <Link to="/inbox" style={{ display: 'inline-block', marginTop: '1.25rem', color: 'var(--accent-primary)' }}>
+          <Link to="/app/inbox" style={{ display: 'inline-block', marginTop: '1.25rem', color: 'var(--accent-primary)' }}>
             Return to your inbox
           </Link>
         )}

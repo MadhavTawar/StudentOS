@@ -52,7 +52,7 @@ Set-Location frontend
 npm run dev -- --host 127.0.0.1 --port 5173
 ```
 
-The backend creates missing SQLAlchemy tables at startup. The repository does not currently contain Alembic migration scripts. The institute-knowledge feature adds tables only and does not alter or reset existing tables; back up the local database before upgrades and do not use `drop_all()` outside the isolated test fixtures.
+The backend creates missing SQLAlchemy tables at startup and runs an additive compatibility migration for legacy knowledge documents, assigning them to the uploader's private workspace and updating existing vector metadata. Back up the local database and vector directory before upgrades; do not use `drop_all()` outside isolated test fixtures. A complete versioned production migration/rollback workflow is still required before a public launch.
 
 ## Tests and checks
 
@@ -77,5 +77,6 @@ The frontend does not currently have a unit-test framework configured. The backe
 - Leave `AI_PROVIDER=offline` for local rule-based processing. To enable Groq, set `AI_PROVIDER=groq`, `GROQ_API_KEY`, and optionally `GROQ_API_URL` and `GROQ_MODEL` in the private root `.env`, then restart the backend. Groq receives selected email subject/sender/snippet during extraction and the assistant question plus relevant task/deadline context during chat. Never commit or paste the key into chat. See the README's Optional Groq AI provider section for the exact configuration block.
 - Groq-compatible defaults are `https://api.groq.com/openai/v1/chat/completions` and `openai/gpt-oss-20b`; change `GROQ_MODEL` if that model is unavailable to your account.
 - Keep `DATABASE_URL` pointed at a separate test database only if you add tests that do not use the existing in-memory test fixture.
-- For institute knowledge, configure `KNOWLEDGE_ADMIN_BOOTSTRAP_TOKEN` with a randomly generated value of at least 32 characters in the private root `.env`. Sign in as the intended first administrator, open **Document desk**, claim the role with the secret, remove the token from `.env`, and restart. The initial claim is one-time; do not send the token through chat or commit it. See [the knowledge-base guide](./KNOWLEDGE_BASE.md).
-- Source files and the persistent Chroma index default to `%USERPROFILE%\.studentos\knowledge` and `%USERPROFILE%\.studentos\chroma`. FastEmbed downloads the configured embedding model on first use; document text is embedded locally. Keep `AI_PROVIDER=offline` if institute questions and source excerpts must not be sent to Groq.
+- New accounts receive a private workspace. Shared workspaces are created and managed from **Workspaces**. Invite links are one-time bearer credentials, expire after seven days, and are not emailed automatically. Share them only with trusted collaborators. See [the workspace knowledge guide](./KNOWLEDGE_BASE.md).
+- Source files and the persistent Chroma index default to `%USERPROFILE%\.studentos\knowledge` and `%USERPROFILE%\.studentos\chroma`. FastEmbed downloads the configured embedding model on first use; document text is embedded locally. Keep `AI_PROVIDER=offline` if workspace questions and source excerpts must not be sent to Groq.
+- The public landing page and workspace/subscription records are product foundations only. There is no email verification, password recovery, email delivery, payment provider, published pricing, or production hosting configuration yet.

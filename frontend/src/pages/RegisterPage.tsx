@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { GraduationCap, Lock, Mail, User, ArrowRight, AlertCircle, CheckCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/common/Button';
+import { api } from '../lib/api';
 
 export const RegisterPage: React.FC = () => {
   const { register } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -26,7 +28,13 @@ export const RegisterPage: React.FC = () => {
     setIsLoading(true);
     try {
       await register(email, password, fullName);
-      navigate('/');
+      const inviteToken = searchParams.get('invite');
+      if (inviteToken) {
+        await api.acceptWorkspaceInvitation(inviteToken);
+        navigate('/app/workspaces');
+      } else {
+        navigate('/app');
+      }
     } catch (err: any) {
       setError(err.message || 'Registration failed.');
     } finally {
@@ -76,10 +84,10 @@ export const RegisterPage: React.FC = () => {
             <GraduationCap size={28} />
           </div>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.03em' }}>
-            Create Student<span style={{ color: 'var(--accent-primary)' }}>OS</span> Account
+            Create your <span style={{ color: 'var(--accent-primary)' }}>StudentOS</span> account
           </h1>
           <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>
-            Set up your personal academic command center
+            Start with a private workspace. Invite a team whenever you need one.
           </p>
         </div>
 
@@ -129,7 +137,7 @@ export const RegisterPage: React.FC = () => {
 
           <div>
             <label className="label" htmlFor="email">
-              University Email Address
+              Email address
             </label>
             <div style={{ position: 'relative' }}>
               <input
@@ -137,7 +145,7 @@ export const RegisterPage: React.FC = () => {
                 type="email"
                 required
                 className="input"
-                placeholder="student@university.edu"
+                placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 style={{ paddingLeft: '2.5rem' }}

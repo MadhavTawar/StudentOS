@@ -12,6 +12,7 @@ from backend.app.models.knowledge import (
     KnowledgeDocumentVersion,
     UserRole,
 )
+from backend.app.models.workspace import Workspace, WorkspaceInvitation, WorkspaceMembership, WorkspaceSubscription
 
 __all__ = [
     "Base",
@@ -31,4 +32,8 @@ __all__ = [
     "KnowledgeDocumentVersion",
     "KnowledgeDocumentChunk",
     "KnowledgeAuditEvent",
+    "Workspace",
+    "WorkspaceMembership",
+    "WorkspaceInvitation",
+    "WorkspaceSubscription",
 ]

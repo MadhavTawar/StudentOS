@@ -15,7 +15,10 @@ import {
   KnowledgeDocument,
   KnowledgeLibraryItem,
   KnowledgeChatResponse,
-  DocumentManager,
+  Workspace,
+  WorkspaceBilling,
+  WorkspaceInvitation,
+  WorkspaceMember,
 } from '../types';
 
 const API_BASE =
@@ -23,6 +26,18 @@ const API_BASE =
   `http://${window.location.hostname}:8000/api/v1`;
 
 class ApiClient {
+  setWorkspaceId(workspaceId: string | null) {
+    if (workspaceId) {
+      localStorage.setItem('studentos_workspace_id', workspaceId);
+    } else {
+      localStorage.removeItem('studentos_workspace_id');
+    }
+  }
+
+  getWorkspaceId(): string | null {
+    return localStorage.getItem('studentos_workspace_id');
+  }
+
   private getToken(): string | null {
     return null;
   }
@@ -42,6 +57,11 @@ class ApiClient {
 
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    if (endpoint.startsWith('/knowledge/')) {
+      const workspaceId = this.getWorkspaceId();
+      if (workspaceId) headers['X-Workspace-ID'] = workspaceId;
     }
 
     const response = await fetch(`${API_BASE}${endpoint}`, {
@@ -103,6 +123,38 @@ class ApiClient {
 
   async getMe(): Promise<User> {
     return this.request<User>('/auth/me');
+  }
+
+  async listWorkspaces(): Promise<Workspace[]> {
+    return this.request<Workspace[]>('/workspaces/');
+  }
+
+  async createWorkspace(name: string): Promise<Workspace> {
+    return this.request<Workspace>('/workspaces/', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    });
+  }
+
+  async createWorkspaceInvitation(workspaceId: string): Promise<WorkspaceInvitation> {
+    return this.request<WorkspaceInvitation>(`/workspaces/${workspaceId}/invites`, {
+      method: 'POST',
+    });
+  }
+
+  async acceptWorkspaceInvitation(token: string): Promise<Workspace> {
+    return this.request<Workspace>('/workspaces/invites/accept', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    });
+  }
+
+  async listWorkspaceMembers(workspaceId: string): Promise<WorkspaceMember[]> {
+    return this.request<WorkspaceMember[]>(`/workspaces/${workspaceId}/members`);
+  }
+
+  async getWorkspaceBilling(workspaceId: string): Promise<WorkspaceBilling> {
+    return this.request<WorkspaceBilling>(`/workspaces/${workspaceId}/billing`);
   }
 
   // Dashboard
@@ -306,13 +358,6 @@ class ApiClient {
     return this.request<KnowledgeAccess>('/knowledge/access');
   }
 
-  async bootstrapInstituteAdmin(token: string): Promise<KnowledgeAccess> {
-    return this.request<KnowledgeAccess>('/knowledge/staff/bootstrap', {
-      method: 'POST',
-      body: JSON.stringify({ token }),
-    });
-  }
-
   async listKnowledgeLibrary(): Promise<KnowledgeLibraryItem[]> {
     return this.request<KnowledgeLibraryItem[]>('/knowledge/library');
   }
@@ -357,27 +402,13 @@ class ApiClient {
     });
   }
 
-  async listDocumentManagers(): Promise<DocumentManager[]> {
-    return this.request<DocumentManager[]>('/knowledge/staff/document-managers');
-  }
-
-  async grantDocumentManager(email: string): Promise<DocumentManager> {
-    return this.request<DocumentManager>('/knowledge/staff/document-managers', {
-      method: 'POST',
-      body: JSON.stringify({ email }),
-    });
-  }
-
-  async revokeDocumentManager(email: string): Promise<void> {
-    await this.request(`/knowledge/staff/document-managers/${encodeURIComponent(email)}`, {
-      method: 'DELETE',
-    });
-  }
-
   async downloadKnowledgeVersion(documentId: string, versionId: string): Promise<Blob> {
+    const headers: Record<string, string> = {};
+    const workspaceId = this.getWorkspaceId();
+    if (workspaceId) headers['X-Workspace-ID'] = workspaceId;
     const response = await fetch(
       `${API_BASE}/knowledge/documents/${documentId}/versions/${versionId}/download`,
-      { credentials: 'include' },
+      { credentials: 'include', headers },
     );
     if (!response.ok) {
       let message = `API Error (${response.status})`;

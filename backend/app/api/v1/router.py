@@ -10,6 +10,7 @@ from backend.app.api.v1.endpoints import (
     preferences,
     health,
     knowledge,
+    workspaces,
 )
 
 api_router = APIRouter()
@@ -23,4 +24,5 @@ api_router.include_router(gmail.router, prefix="/gmail", tags=["Gmail Integratio
 api_router.include_router(ai.router, prefix="/ai", tags=["AI Assistance & Extraction"])
 api_router.include_router(reminders.router, prefix="/reminders", tags=["Reminders & Notifications"])
 api_router.include_router(preferences.router, prefix="/preferences", tags=["User Preferences"])
-api_router.include_router(knowledge.router, prefix="/knowledge", tags=["Institute Knowledge"])
+api_router.include_router(knowledge.router, prefix="/knowledge", tags=["Workspace Knowledge"])
+api_router.include_router(workspaces.router, prefix="/workspaces", tags=["Workspaces and Plans"])
