@@ -514,6 +514,33 @@ def list_documents(db: Session, workspace_id: str) -> List[KnowledgeDocument]:
     )
 
 
+def delete_workspace_documents(db: Session, workspace_id: str, actor: User) -> None:
+    documents = (
+        db.query(KnowledgeDocument)
+        .filter(KnowledgeDocument.workspace_id == workspace_id)
+        .options(joinedload(KnowledgeDocument.versions))
+        .all()
+    )
+    versions = [version for document in documents for version in document.versions]
+    if versions:
+        vector_store = KnowledgeVectorStore()
+        for version in versions:
+            vector_store.delete_version(version.id)
+        for version in versions:
+            path = _storage_path(version.storage_key)
+            try:
+                path.unlink(missing_ok=True)
+            except OSError as exc:
+                logger.exception("Could not remove private workspace document file %s.", version.id)
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="A private workspace document file could not be deleted.",
+                ) from exc
+    for document in documents:
+        _audit(db, actor, "document_deleted", "knowledge_document", document.id, {"reason": "account_deletion"})
+        db.delete(document)
+
+
 def list_published_library(db: Session, workspace_id: str) -> List[KnowledgeLibraryItem]:
     rows = (
         db.query(KnowledgeDocument, KnowledgeDocumentVersion)

@@ -3,8 +3,10 @@ from sqlalchemy.orm import Session
 from backend.app.api.deps import get_db, get_current_user, check_rate_limit, oauth2_scheme
 from backend.app.core.security import create_access_token
 from backend.app.models.user import User
-from backend.app.schemas.auth import UserRegister, UserLogin, UserResponse, TokenResponse
+from backend.app.schemas.auth import AccountDeleteRequest, UserRegister, UserLogin, UserResponse, TokenResponse
 from backend.app.services.auth_service import AuthService
+from backend.app.services.account_service import delete_user_account
+from backend.app.core.security import verify_password
 
 router = APIRouter()
 
@@ -57,3 +59,20 @@ def logout(
 def get_current_user_profile(current_user: User = Depends(get_current_user)):
     """Retrieve currently authenticated user profile and preferences."""
     return current_user
+
+
+@router.delete("/me")
+def delete_current_user_account(
+    request: AccountDeleteRequest,
+    response: Response,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not verify_password(request.current_password, current_user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="The current password is incorrect.",
+        )
+    delete_user_account(db, current_user)
+    AuthService.clear_session_cookie(response)
+    return {"message": "Account and personal data deleted."}

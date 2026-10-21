@@ -24,6 +24,10 @@ class UserLogin(BaseModel):
     password: str
 
 
+class AccountDeleteRequest(BaseModel):
+    current_password: str = Field(..., min_length=1)
+
+
 class UserPreferenceSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

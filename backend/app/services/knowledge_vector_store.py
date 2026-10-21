@@ -158,6 +158,22 @@ class KnowledgeVectorStore:
                 detail="The local search index could not be migrated to workspace isolation.",
             ) from exc
 
+    def delete_version(self, version_id: str) -> None:
+        try:
+            result = self.collection.get(
+                where={"version_id": version_id},
+                include=["metadatas"],
+            )
+            ids = result.get("ids") or []
+            if ids:
+                self.collection.delete(ids=ids)
+        except Exception as exc:
+            logger.exception("Could not delete workspace vectors for version %s.", version_id)
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Workspace knowledge vectors could not be deleted.",
+            ) from exc
+
     def search(self, query: str, workspace_id: str, limit: int = 20) -> List[Dict[str, Any]]:
         try:
             query_embedding = self._embed([query])[0]

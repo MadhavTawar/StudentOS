@@ -2,6 +2,11 @@ import pytest
 from datetime import datetime, timezone
 from backend.app.core.security import decode_access_token
 from backend.app.models.user import UserSession
+from backend.app.models.user import User
+from backend.app.models.task import Task
+from backend.app.models.integration import EmailMetadataCache, OAuthIntegration
+from backend.app.models.workspace import Workspace, WorkspaceMembership
+from backend.app.services.workspace_service import create_organization_workspace
 
 
 def test_user_registration(client, test_password):
@@ -71,6 +76,74 @@ def test_expired_session_is_rejected(client, test_user, test_password, db):
 
     response = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == 401
+
+
+def test_account_deletion_requires_current_password(client, test_user, auth_headers, db):
+    response = client.request(
+        "DELETE",
+        "/api/v1/auth/me",
+        json={"current_password": "incorrect-password"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 403
+    assert db.query(User).filter_by(id=test_user.id).first() is not None
+
+
+def test_account_deletion_removes_user_data_and_preserves_other_users(
+    client, test_user, second_user, test_password, auth_headers, second_auth_headers, db
+):
+    db.add_all([
+        Task(user_id=test_user.id, title="Delete this task"),
+        Task(user_id=second_user.id, title="Keep this task"),
+        OAuthIntegration(
+            user_id=test_user.id,
+            provider="google_gmail",
+            encrypted_access_token="encrypted",
+        ),
+        EmailMetadataCache(
+            user_id=test_user.id,
+            message_id="delete-message",
+            sender="sender@example.test",
+            subject="Delete this cached message",
+            internal_date=datetime.now(timezone.utc),
+        ),
+    ])
+    db.commit()
+
+    response = client.request(
+        "DELETE",
+        "/api/v1/auth/me",
+        json={"current_password": test_password},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    assert "studentos_session=" in response.headers["set-cookie"]
+    assert db.query(User).filter_by(id=test_user.id).first() is None
+    assert db.query(Task).filter_by(user_id=test_user.id).count() == 0
+    assert db.query(OAuthIntegration).filter_by(user_id=test_user.id).count() == 0
+    assert db.query(EmailMetadataCache).filter_by(user_id=test_user.id).count() == 0
+    assert db.query(Workspace).filter_by(created_by=test_user.id).count() == 0
+    assert db.query(Task).filter_by(user_id=second_user.id, title="Keep this task").count() == 1
+    assert client.get("/api/v1/auth/me", headers=second_auth_headers).status_code == 200
+
+
+def test_account_deletion_refuses_shared_workspace_owned_by_user(
+    client, test_user, second_user, test_password, auth_headers, db
+):
+    shared = create_organization_workspace(db, test_user, "Shared workspace")
+    db.add(WorkspaceMembership(workspace_id=shared.id, user_id=second_user.id, role="member"))
+    db.commit()
+
+    response = client.request(
+        "DELETE",
+        "/api/v1/auth/me",
+        json={"current_password": test_password},
+        headers=auth_headers,
+    )
+    assert response.status_code == 409
+    assert "Transfer ownership or delete" in response.json()["detail"]
+    assert db.query(User).filter_by(id=test_user.id).first() is not None
+    assert db.query(Workspace).filter_by(id=shared.id).first() is not None
 
 
 def test_cookie_authenticated_write_requires_trusted_origin(client, test_user, test_password):
