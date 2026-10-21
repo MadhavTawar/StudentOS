@@ -1,6 +1,6 @@
 # StudentOS Product Refactoring Audit
 
-**Audit date:** 2026-10-21  
+**Audit date:** 2026-10-21
 **Scope:** Phase 0 of the personal-first product simplification workflow.
 
 ## Evidence labels

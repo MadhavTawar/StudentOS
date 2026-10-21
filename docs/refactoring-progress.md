@@ -5,7 +5,7 @@ This is the running log for the personal-first product simplification workflow.
 ## Phase 0 — Audit
 
 - **Status:** Complete; awaiting the product owner's next phase selection.
-- **Commit:** `docs: audit StudentOS product refactoring baseline` (this phase's commit; see `git log` for its hash).
+- **Commits:** `docs: audit StudentOS product refactoring baseline`; `docs: tidy audit markdown whitespace` (documentation-only whitespace follow-up).
 - **Changes:** Added [`product-refactoring-audit.md`](./product-refactoring-audit.md). No application code, API, model, data, or migration changes.
 - **Backend:** `python -m pytest -o pythonpath=. -q backend/app/tests` — **56 passed**, 1 protobuf deprecation warning, 133.23 seconds.
 - **Frontend lint:** From `frontend`, `npm run lint` — **passed**, no warnings reported.
