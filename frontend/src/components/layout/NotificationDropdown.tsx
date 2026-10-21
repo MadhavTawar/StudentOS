@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, Trash2, Calendar, AlertCircle } from 'lucide-react';
+import { Check, Trash2, AlertCircle } from 'lucide-react';
 import { InAppNotification } from '../../types';
 
 interface NotificationDropdownProps {

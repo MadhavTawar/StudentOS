@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Bell, Plus, Trash2, CheckCircle2, Clock, AlertCircle, Calendar } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Bell, Plus, Clock, AlertCircle } from 'lucide-react';
 import { api } from '../lib/api';
-import { Reminder, Deadline, Task } from '../types';
+import { Reminder, Deadline } from '../types';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
 import { EmptyState } from '../components/common/EmptyState';
@@ -10,7 +10,6 @@ import { LoadingSkeleton } from '../components/common/LoadingSkeleton';
 export const RemindersPage: React.FC = () => {
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [deadlines, setDeadlines] = useState<Deadline[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,28 +23,26 @@ export const RemindersPage: React.FC = () => {
   const [selectedTaskId, setSelectedTaskId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const fetchReminders = async () => {
+  const fetchReminders = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const [rems, dlines, tlist] = await Promise.all([
+      const [rems, dlines] = await Promise.all([
         api.listReminders(),
         api.listDeadlines({ upcoming_only: true }),
-        api.listTasks({ status: 'Active' }),
       ]);
       setReminders(rems);
       setDeadlines(dlines);
-      setTasks(tlist);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch reminders.');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchReminders();
-  }, []);
+    void Promise.resolve().then(fetchReminders);
+  }, [fetchReminders]);
 
   const handleCreateReminder = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { GraduationCap, Lock, Mail, User, ArrowRight, AlertCircle, CheckCircle } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import { GraduationCap, Lock, Mail, User, ArrowRight, AlertCircle } from 'lucide-react';
+import { useAuth } from '../context/useAuth';
 import { Button } from '../components/common/Button';
 import { api } from '../lib/api';
 

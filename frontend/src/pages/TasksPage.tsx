@@ -1,17 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   CheckSquare,
   Plus,
   Search,
-  Filter,
   Trash2,
   Edit2,
   Clock,
   AlertCircle,
-  Tag,
   ArrowUpDown,
-  RefreshCw,
-  CheckCircle2
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { Task, TaskPriority, TaskStatus } from '../types';
@@ -22,6 +18,7 @@ import { EmptyState } from '../components/common/EmptyState';
 import { LoadingSkeleton } from '../components/common/LoadingSkeleton';
 
 export const TasksPage: React.FC = () => {
+  const [currentTime] = useState(() => new Date());
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +28,7 @@ export const TasksPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
-  const [sortBy, setSortBy] = useState('due_date');
+  const sortBy = 'due_date';
   const [sortOrder, setSortOrder] = useState('asc');
 
   // Create / Edit Modal State
@@ -49,7 +46,7 @@ export const TasksPage: React.FC = () => {
   // Delete Confirmation Modal
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
 
-  const fetchTasks = async () => {
+  const fetchTasks = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
@@ -67,11 +64,11 @@ export const TasksPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [statusFilter, priorityFilter, categoryFilter, search, sortBy, sortOrder]);
 
   useEffect(() => {
-    fetchTasks();
-  }, [statusFilter, priorityFilter, categoryFilter, sortBy, sortOrder]);
+    void Promise.resolve().then(fetchTasks);
+  }, [fetchTasks]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -324,7 +321,7 @@ export const TasksPage: React.FC = () => {
                       <span
                         style={{
                           fontSize: '0.75rem',
-                          color: new Date(task.due_date) < new Date() && task.status !== 'Completed' ? '#f87171' : 'var(--text-dim)',
+                          color: new Date(task.due_date) < currentTime && task.status !== 'Completed' ? '#f87171' : 'var(--text-dim)',
                           display: 'flex',
                           alignItems: 'center',
                           gap: '4px',

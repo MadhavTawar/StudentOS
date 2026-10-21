@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { Bell, LogOut, Menu, User as UserIcon } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/useAuth';
 import { api } from '../../lib/api';
 import { InAppNotification } from '../../types';
 import { NotificationDropdown } from './NotificationDropdown';
@@ -12,23 +12,24 @@ interface NavbarProps {
 
 export const Navbar: React.FC<NavbarProps> = ({ onMenuClick, isMenuOpen = false }) => {
   const { user, logout } = useAuth();
+  const [currentDate] = useState(() => new Date());
   const [notifications, setNotifications] = useState<InAppNotification[]>([]);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     try {
       const data = await api.listNotifications();
       setNotifications(data);
     } catch {
       // Ignore background fetch failure
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchNotifications();
+    void Promise.resolve().then(fetchNotifications);
     const interval = setInterval(fetchNotifications, 20000); // Check every 20s
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchNotifications]);
 
   const handleMarkRead = async (id: string) => {
     try {
@@ -77,8 +78,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onMenuClick, isMenuOpen = false 
       </button>
       <div className="topbar-date">
         <span>FIELD NOTES / TODAY</span>
-        <time dateTime={new Date().toISOString()}>
-          {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+        <time dateTime={currentDate.toISOString()}>
+          {currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
         </time>
       </div>
 

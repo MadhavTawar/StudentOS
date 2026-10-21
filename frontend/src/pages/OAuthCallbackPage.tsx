@@ -6,33 +6,30 @@ export const OAuthCallbackPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const handled = useRef(false);
-  const [error, setError] = useState<string | null>(null);
+  const [callbackError, setCallbackError] = useState<string | null>(null);
+  const params = new URLSearchParams(location.search);
+  const code = params.get('code');
+  const state = params.get('state');
+  const googleError = params.get('error');
+  const error = callbackError
+    ?? (googleError
+      ? `Google authorization was not completed: ${googleError}`
+      : !code || !state
+        ? 'Google did not return the required authorization details. Please try connecting again.'
+        : null);
 
   useEffect(() => {
     if (handled.current) return;
     handled.current = true;
 
-    const params = new URLSearchParams(location.search);
-    const code = params.get('code');
-    const state = params.get('state');
-    const googleError = params.get('error');
-
-    if (googleError) {
-      setError(`Google authorization was not completed: ${googleError}`);
-      return;
-    }
-
-    if (!code || !state) {
-      setError('Google did not return the required authorization details. Please try connecting again.');
-      return;
-    }
+    if (googleError || !code || !state) return;
 
     api.sendGmailCallback(code, state)
       .then(() => navigate('/app/inbox', { replace: true }))
       .catch((callbackError: Error) => {
-        setError(callbackError.message || 'Could not connect your Gmail account.');
+        setCallbackError(callbackError.message || 'Could not connect your Gmail account.');
       });
-  }, [location.search, navigate]);
+  }, [location.search, navigate, code, state, googleError]);
 
   return (
     <main style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', backgroundColor: 'var(--bg-main)', padding: '2rem' }}>

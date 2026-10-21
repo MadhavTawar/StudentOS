@@ -1,25 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Settings,
   Shield,
   Trash2,
   Save,
   CheckCircle,
-  AlertTriangle,
   Lock,
   Mail,
   Bot,
   Database
 } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
-import { UserPreference } from '../types';
 import { Button } from '../components/common/Button';
 import { LoadingSkeleton } from '../components/common/LoadingSkeleton';
 
 export const SettingsPage: React.FC = () => {
-  const { user } = useAuth();
-  const [prefs, setPrefs] = useState<UserPreference | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -35,7 +29,6 @@ export const SettingsPage: React.FC = () => {
     const fetchPrefs = async () => {
       try {
         const data = await api.getPreferences();
-        setPrefs(data);
         setTimezone(data.timezone || 'UTC');
         setTheme(data.theme || 'dark');
         setEmailSync(data.email_sync_enabled);
@@ -56,14 +49,13 @@ export const SettingsPage: React.FC = () => {
     setSaveSuccess(false);
 
     try {
-      const updated = await api.updatePreferences({
+      await api.updatePreferences({
         timezone,
         theme,
         email_sync_enabled: emailSync,
         ai_features_enabled: aiFeatures,
         reminder_lead_minutes: leadTime,
       });
-      setPrefs(updated);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err: any) {

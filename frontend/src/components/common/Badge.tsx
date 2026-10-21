@@ -1,12 +1,6 @@
 import React from 'react';
 import { TaskPriority } from '../../types';
 
-interface BadgeProps {
-  priority?: TaskPriority | string;
-  status?: string;
-  category?: string;
-}
-
 export const PriorityBadge: React.FC<{ priority: TaskPriority | string }> = ({ priority }) => {
   const norm = (priority || '').toLowerCase();
   let className = 'badge-medium';

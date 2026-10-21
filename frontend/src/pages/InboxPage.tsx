@@ -1,17 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useRef, useState, useEffect } from 'react';
 import {
   Mail,
   RefreshCw,
   Sparkles,
   Search,
-  ExternalLink,
   ShieldCheck,
   Check,
   X,
-  AlertCircle,
   HelpCircle,
   Clock,
-  ChevronRight,
   Lock
 } from 'lucide-react';
 import { api } from '../lib/api';
@@ -25,8 +22,8 @@ export const InboxPage: React.FC = () => {
   const [status, setStatus] = useState<GmailStatus | null>(null);
   const [messages, setMessages] = useState<EmailMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const searchRef = useRef('');
 
   // AI Extraction Modal State
   const [extractingEmail, setExtractingEmail] = useState<EmailMessage | null>(null);
@@ -36,27 +33,26 @@ export const InboxPage: React.FC = () => {
   const [reviewMessage, setReviewMessage] = useState<string | null>(null);
   const [candidateEdits, setCandidateEdits] = useState<Record<string, { title: string; dueDate: string }>>({});
 
-  const fetchInbox = async () => {
+  const fetchInbox = useCallback(async () => {
     setIsLoading(true);
-    setError(null);
     try {
       const statusData = await api.getGmailStatus();
       setStatus(statusData);
 
       if (statusData.is_connected) {
-        const msgs = await api.listGmailMessages(search.trim() || undefined);
+        const msgs = await api.listGmailMessages(searchRef.current.trim() || undefined);
         setMessages(msgs.messages);
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to load inbox information.');
+      console.error(err);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchInbox();
-  }, []);
+    void Promise.resolve().then(fetchInbox);
+  }, [fetchInbox]);
 
   const handleConnectGmail = async () => {
     try {
@@ -231,7 +227,10 @@ export const InboxPage: React.FC = () => {
                 className="input"
                 placeholder="Search emails by sender or subject..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => {
+                  searchRef.current = e.target.value;
+                  setSearch(e.target.value);
+                }}
                 onKeyDown={(e) => e.key === 'Enter' && fetchInbox()}
                 style={{ paddingLeft: '2.25rem' }}
               />

@@ -1,13 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import {
-  Calendar,
   Plus,
   AlertTriangle,
   Clock,
   Trash2,
   Edit2,
   CalendarDays,
-  CheckCircle,
   HelpCircle,
   AlertCircle
 } from 'lucide-react';
@@ -45,7 +43,7 @@ export const DeadlinesPage: React.FC = () => {
   // Deletion Modal
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const fetchDeadlines = async () => {
+  const fetchDeadlines = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
@@ -63,11 +61,11 @@ export const DeadlinesPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [eventTypeFilter, statusFilter]);
 
   useEffect(() => {
-    fetchDeadlines();
-  }, [eventTypeFilter, statusFilter]);
+    void Promise.resolve().then(fetchDeadlines);
+  }, [fetchDeadlines]);
 
   const openCreateModal = () => {
     setEditingDeadline(null);

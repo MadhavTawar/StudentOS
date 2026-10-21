@@ -29,7 +29,7 @@ export const WorkspacesPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    refresh()
+    void Promise.resolve().then(refresh)
       .catch((loadError: unknown) => setError(loadError instanceof Error ? loadError.message : 'Could not load workspaces.'))
       .finally(() => setIsLoading(false));
   }, [refresh]);

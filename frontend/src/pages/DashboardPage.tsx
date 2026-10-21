@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   CheckSquare,
@@ -9,14 +9,12 @@ import {
   Bot,
   RefreshCw,
   Clock,
-  Sparkles,
-  ArrowRight,
   CheckCircle2,
   CalendarDays
 } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 import { api } from '../lib/api';
-import { DashboardOverview, Task } from '../types';
+import { DashboardOverview } from '../types';
 import { Button } from '../components/common/Button';
 import { PriorityBadge, StatusBadge } from '../components/common/Badge';
 import { EmptyState } from '../components/common/EmptyState';
@@ -25,6 +23,7 @@ import { Modal } from '../components/common/Modal';
 
 export const DashboardPage: React.FC = () => {
   const { user } = useAuth();
+  const [currentDate] = useState(() => new Date());
   const [data, setData] = useState<DashboardOverview | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +36,7 @@ export const DashboardPage: React.FC = () => {
   const [taskDueDate, setTaskDueDate] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const fetchDashboard = async () => {
+  const fetchDashboard = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
@@ -48,11 +47,11 @@ export const DashboardPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchDashboard();
-  }, []);
+    void Promise.resolve().then(fetchDashboard);
+  }, [fetchDashboard]);
 
   const handleToggleTask = async (taskId: string) => {
     try {
@@ -88,7 +87,7 @@ export const DashboardPage: React.FC = () => {
   };
 
   const getGreeting = () => {
-    const hour = new Date().getHours();
+    const hour = currentDate.getHours();
     if (hour < 12) return 'Good morning';
     if (hour < 18) return 'Good afternoon';
     return 'Good evening';
@@ -135,7 +134,7 @@ export const DashboardPage: React.FC = () => {
         <div className="dashboard-masthead-actions" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <div className="dashboard-date-stamp">
             <CalendarDays size={15} />
-            <span>{new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+            <span>{currentDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
           </div>
           <Button variant="primary" onClick={() => setIsQuickTaskOpen(true)} icon={<Plus size={16} />}>
             Quick Task
