@@ -11,7 +11,7 @@ StudentOS helps students organize coursework, deadlines, study plans, reminders,
 - **Personal Study Dashboard**: Real-time overview of active tasks, upcoming deadlines, overdue items, recent emails, and connection states.
 - **Task Management**: Comprehensive CRUD with priority tags (Urgent, High, Medium, Low), academic categories, due dates, estimated durations, and toggle completion.
 - **Academic Deadlines**: Chronological calendar tracking with automated duplicate detection, ambiguous date warnings, and task associations.
-- **Read-Only Gmail Integration**: Least-privilege OAuth 2.0 (`gmail.readonly`) integration with AES/Fernet encrypted token storage, untrusted preview sanitization, and disconnect support.
+- **Read-Only Gmail Integration**: Least-privilege OAuth 2.0 (`gmail.readonly`) integration with AES/Fernet encrypted token storage, untrusted preview sanitization, and best-effort Google grant revocation on disconnect.
 - **AI-Assisted Email Understanding & Extraction**:
   - Extracts task and deadline candidate proposals with supporting quoted excerpts and confidence metrics.
   - **Human-in-the-Loop Guardrail**: Extracted proposals are *never* automatically committed without explicit user review and approval.
@@ -22,7 +22,7 @@ StudentOS helps students organize coursework, deadlines, study plans, reminders,
 - **Personal and Shared Workspaces**: Every account receives a private workspace. Optional organization workspaces can publish shared references; coursework, Gmail, reminders, and assistant context remain account-private.
 - **SaaS Billing Foundation**: Workspace-level plan/subscription records and billing status UI. No payment provider, paid plans, or prices are enabled yet.
 - **Persistent In-App Reminders**: Background single-process scheduler polling database intervals with duplicate alert suppression and customizable lead times.
-- **Privacy & Data Governance**: Transparent disclosures on local storage, data minimization, and one-click data clearance.
+- **Privacy & Data Governance**: Transparent disclosures on local storage, data minimization, and password-confirmed account deletion.
 
 ---
 
@@ -32,7 +32,7 @@ StudentOS helps students organize coursework, deadlines, study plans, reminders,
 | --- | --- |
 | **Frontend** | React 19, TypeScript, Vite 8, responsive StudentOS design system, Lucide React, React Router v7 |
 | **Backend** | Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2.0, SQLite (local development); workspace membership and library access are validated server-side |
-| **Security** | Bcrypt password hashing, signed JWT session tokens, Fernet token encryption (AES-128-CBC + HMAC-SHA256), HttpOnly cookies, CORS whitelisting, CSRF state verification |
+| **Security** | Bcrypt password hashing, database-revocable JWT sessions, Fernet token encryption (AES-128-CBC + HMAC-SHA256), HttpOnly cookies, CORS whitelisting, CSRF state verification |
 | **AI Layer** | Offline rule-based assistant and local FastEmbed embeddings by default; optional Groq chat-completions provider |
 
 ---
@@ -132,9 +132,9 @@ After authorization, Google redirects to StudentOS's `/oauth/callback` page, whi
 
 - **Google error 403 `access_denied` / app is being tested:** In Google Cloud Console, verify the OAuth consent screen is in **Testing** and the exact Google account signing in is listed under **Test users**. Make sure you are editing the same Cloud project that owns the OAuth client ID used in `.env`. Allow a few minutes after saving, then try connecting again.
 - **Google `redirect_uri_mismatch`:** Ensure the authorized redirect URI in the OAuth client is exactly `http://localhost:5173/oauth/callback`, including scheme, port, and path. Ensure `GOOGLE_REDIRECT_URI` in `.env` matches.
-- **StudentOS still shows the demo account:** Confirm both `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are non-empty in the repository-root `.env`, restart the backend, then disconnect the demo connection and connect again. A missing pair keeps the application in local mock mode; configuring only one value returns a configuration error.
+- **StudentOS still shows the demo account:** Confirm both `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are non-empty in the repository-root `.env`, restart the backend, then disconnect the demo connection and connect again. A missing pair enables local mock mode only outside production; production returns a configuration error instead. Configuring only one value also returns an error.
 
-Keep the client secret private and out of source control. Never commit `.env` or share its secret. With neither OAuth credential configured, StudentOS remains in local mock mode and shows synthetic demo emails; setting only one credential is reported as a configuration error. Mock authorization codes are rejected when Google OAuth credentials are configured.
+Keep the client secret private and out of source control. Never commit `.env` or share its secret. With neither OAuth credential configured, non-production environments use local mock mode and synthetic demo emails; production requires both OAuth credentials and never creates mock tokens or demo emails. Setting only one credential is reported as a configuration error. Mock authorization codes are rejected when Google OAuth credentials are configured.
 
 ### Optional Groq AI provider
 
@@ -159,7 +159,7 @@ FastEmbed and Chroma provide local workspace-scoped retrieval. With `AI_PROVIDER
 
 The app now has a public product landing page, open account registration, tenant-aware personal and shared workspaces, workspace membership, and workspace-level subscription records. Billing UI is informational only: there is no configured payment processor, no paid plan or price, and no charge can be made.
 
-This is a locally runnable SaaS prototype, **not a production SaaS launch**. Before exposing it publicly, add email verification and account recovery, connect and test an email delivery provider, integrate a payment provider with signed webhooks, configure production PostgreSQL and versioned deployment migrations, deploy private object/vector storage with backups and retention controls, review legal/privacy obligations, and validate production secrets, HTTPS, CORS, and Google OAuth verification. Workspace invitation links are bearer tokens and are not email-verified.
+This is a locally runnable SaaS prototype, **not a production SaaS launch**. Before exposing it publicly, add email verification and account recovery, connect and test an email delivery provider, integrate a payment provider with signed webhooks, validate production PostgreSQL and Alembic deployment operations, deploy private object/vector storage with backups and retention controls, review legal/privacy obligations, and validate production secrets, HTTPS, CORS, and Google OAuth verification. Workspace invitation links are bearer tokens and are not email-verified. Account deletion requires the current password and is blocked while the user owns a shared workspace with other members.
 
 ---
 
@@ -180,18 +180,21 @@ Or directly via pytest:
 
 The backend test suite uses an isolated in-memory SQLite database and mocked Gmail OAuth. There is no frontend test runner configured yet; `npm run build` checks TypeScript compilation and the production bundle.
 
+GitHub Actions also runs the backend suite and frontend install, production build, and lint checks on every push and pull request.
+
 ## Current MVP scope and limitations
 
 - Gmail OAuth, read-only inbox metadata sync, task/deadline CRUD, and offline AI proposal review are implemented. Gmail sync currently retrieves up to 20 inbox messages per request.
 - The AI extractor runs locally by default; the optional Groq provider is active when explicitly selected. Knowledge embeddings and vector search run locally, while Groq receives knowledge questions and retrieved passages only when configured.
 - Workspace RAG is a bounded local MVP: PDF/DOCX only, no OCR, synchronous processing, no automated task creation, and no multi-node vector-store deployment.
 - AI suggestions require explicit review. When a deadline has no confirmed date, enter one before approving it.
-- Database tables are created at application startup with SQLAlchemy `create_all`; an additive startup migration assigns legacy knowledge documents to their uploader's private workspace. A full versioned production migration and rollback workflow is not configured.
-- Account email ownership is not verified, self-service password recovery and account deletion are not implemented, and invitation delivery is not sent by email.
+- Development/testing create missing database tables at startup. Production requires Alembic migrations: `python -m alembic upgrade head`. Existing databases that already match the current schema may be backed up and verified before `python -m alembic stamp head`; stamping does not validate or change the schema. The additive startup migration still assigns legacy knowledge documents to their uploader's private workspace.
+- Account email ownership is not verified, self-service password recovery and invitation email delivery are not implemented. Account deletion is available at `DELETE /api/v1/auth/me` with current-password confirmation; the user must first transfer or delete any shared workspace they own that has other members.
 - Workspace subscription records are billing-ready structure only. No billing provider, plan catalog, pricing, checkout, tax, or webhook processing is configured.
 - Reminders run in the backend process and cannot notify while the application is stopped. Run a single backend worker for local development.
-- Authentication rate limiting is in-memory and is not shared across multiple server processes.
-- Browser authentication uses an HttpOnly cookie, and cookie-authenticated writes require a trusted `Origin`. Legacy localStorage tokens are cleared on app startup. JWT sessions are not individually revoked on logout; a retained token can remain valid until expiry.
+- Authentication and endpoint rate limiting are in-memory and are not shared across multiple server processes. Expired keys are evicted. AI, Gmail message listing, and knowledge chat are limited to 30 requests per user per minute.
+- Browser authentication uses an HttpOnly cookie, and cookie-authenticated writes require a trusted `Origin`. Legacy localStorage tokens are cleared on app startup. JWTs are individually revoked on logout through their database-backed session IDs.
+- Gmail disconnect asks Google to revoke its stored refresh/access token before deleting local credentials and cached messages. Remote revocation is best-effort; local deletion still proceeds if Google is unavailable. Mock tokens are not sent to Google.
 
 ---
 
