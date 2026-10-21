@@ -97,3 +97,23 @@ def test_invalid_encryption_key_is_rejected():
             SECRET_KEY="test-key-that-is-long-enough-for-development",
             ENCRYPTION_KEY="not-a-fernet-key",
         )
+
+
+def test_security_headers_are_restrictive_in_production(client, monkeypatch):
+    monkeypatch.setattr(settings, "ENVIRONMENT", "production")
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert response.headers["strict-transport-security"] == "max-age=31536000; includeSubDomains"
+    assert response.headers["content-security-policy"] == "default-src 'none'; frame-ancestors 'none'"
+    assert "x-xss-protection" not in response.headers
+
+
+def test_production_security_headers_do_not_restrict_development_docs(client, monkeypatch):
+    monkeypatch.setattr(settings, "ENVIRONMENT", "development")
+    response = client.get("/docs")
+
+    assert response.status_code == 200
+    assert "content-security-policy" not in response.headers
+    assert "strict-transport-security" not in response.headers
+    assert "x-xss-protection" not in response.headers
