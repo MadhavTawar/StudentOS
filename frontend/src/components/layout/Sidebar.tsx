@@ -3,7 +3,6 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   CheckSquare,
-  Calendar,
   Mail,
   Bot,
   Bell,
@@ -61,8 +60,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const navItems = [
     { name: 'Study desk', path: '/app', icon: <LayoutDashboard size={19} /> },
-    { name: 'Coursework', path: '/app/tasks', icon: <CheckSquare size={19} /> },
-    { name: 'Calendar', path: '/app/deadlines', icon: <Calendar size={19} /> },
+    { name: 'Planner', path: '/app/planner', icon: <CheckSquare size={19} /> },
     { name: 'Inbox', path: '/app/inbox', icon: <Mail size={19} /> },
     { name: 'Shared library', path: '/app/knowledge', icon: <BookOpen size={19} /> },
     ...(showDocumentDesk

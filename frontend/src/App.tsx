@@ -5,8 +5,7 @@ import { Layout } from './components/layout/Layout';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { DashboardPage } from './pages/DashboardPage';
-import { TasksPage } from './pages/TasksPage';
-import { DeadlinesPage } from './pages/DeadlinesPage';
+import { PlannerPage } from './pages/PlannerPage';
 import { InboxPage } from './pages/InboxPage';
 import { AssistantPage } from './pages/AssistantPage';
 import { RemindersPage } from './pages/RemindersPage';
@@ -32,8 +31,9 @@ export function App() {
 
           <Route path="/app" element={<Layout />}>
             <Route index element={<DashboardPage />} />
-            <Route path="tasks" element={<TasksPage />} />
-            <Route path="deadlines" element={<DeadlinesPage />} />
+            <Route path="planner" element={<PlannerPage />} />
+            <Route path="tasks" element={<Navigate to="/app/planner?view=tasks" replace />} />
+            <Route path="deadlines" element={<Navigate to="/app/planner?view=deadlines" replace />} />
             <Route path="inbox" element={<InboxPage />} />
             <Route path="assistant" element={<AssistantPage />} />
             <Route path="knowledge" element={<KnowledgePage />} />
