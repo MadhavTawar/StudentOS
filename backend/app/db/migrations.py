@@ -89,3 +89,22 @@ def migrate_legacy_knowledge_workspaces(engine: Engine) -> None:
         raise
     finally:
         db.close()
+
+
+def migrate_ai_candidate_metadata(engine: Engine) -> None:
+    """Add ambiguity fields to existing candidate tables without losing proposals."""
+    inspector = inspect(engine)
+    if not inspector.has_table("ai_extraction_candidates"):
+        return
+    columns = {column["name"] for column in inspector.get_columns("ai_extraction_candidates")}
+    with engine.begin() as connection:
+        if "is_ambiguous" not in columns:
+            connection.execute(text(
+                "ALTER TABLE ai_extraction_candidates "
+                "ADD COLUMN is_ambiguous BOOLEAN NOT NULL DEFAULT FALSE"
+            ))
+        if "original_date_text" not in columns:
+            connection.execute(text(
+                "ALTER TABLE ai_extraction_candidates "
+                "ADD COLUMN original_date_text VARCHAR(255)"
+            ))

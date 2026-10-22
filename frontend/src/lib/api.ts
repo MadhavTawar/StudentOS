@@ -19,6 +19,8 @@ import {
   WorkspaceBilling,
   WorkspaceInvitation,
   WorkspaceMember,
+  Goal,
+  GoalMilestone,
 } from '../types';
 
 const API_BASE =
@@ -211,6 +213,21 @@ class ApiClient {
     return this.request<TaskStats>('/tasks/stats');
   }
 
+  async listGoals(): Promise<Goal[]> { return this.request<Goal[]>('/goals/'); }
+  async createGoal(data: Partial<Goal>): Promise<Goal> {
+    return this.request<Goal>('/goals/', { method: 'POST', body: JSON.stringify(data) });
+  }
+  async updateGoal(id: string, data: Partial<Goal>): Promise<Goal> {
+    return this.request<Goal>(`/goals/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+  }
+  async deleteGoal(id: string): Promise<void> { await this.request(`/goals/${id}`, { method: 'DELETE' }); }
+  async addGoalMilestone(goalId: string, data: { title: string; target_date?: string; create_task: boolean }): Promise<GoalMilestone> {
+    return this.request<GoalMilestone>(`/goals/${goalId}/milestones`, { method: 'POST', body: JSON.stringify(data) });
+  }
+  async updateGoalMilestone(id: string, data: Partial<GoalMilestone>): Promise<GoalMilestone> {
+    return this.request<GoalMilestone>(`/goals/milestones/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+  }
+
   // Deadlines
   async listDeadlines(params?: { event_type?: string; status?: string; upcoming_only?: boolean }): Promise<Deadline[]> {
     const query = new URLSearchParams();
@@ -300,6 +317,8 @@ class ApiClient {
         action,
         modified_title: modifications?.title,
         modified_due_date: modifications?.suggested_due_date,
+        modified_is_ambiguous: modifications?.is_ambiguous,
+        modified_original_date_text: modifications?.original_date_text,
         modified_priority: modifications?.priority,
         modified_category: modifications?.category,
       }),

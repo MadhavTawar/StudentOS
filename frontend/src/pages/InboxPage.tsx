@@ -31,7 +31,7 @@ export const InboxPage: React.FC = () => {
   const [isExtracting, setIsExtracting] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [reviewMessage, setReviewMessage] = useState<string | null>(null);
-  const [candidateEdits, setCandidateEdits] = useState<Record<string, { title: string; dueDate: string }>>({});
+  const [candidateEdits, setCandidateEdits] = useState<Record<string, { title: string; dueDate: string; isAmbiguous: boolean }>>({});
 
   const fetchInbox = useCallback(async () => {
     setIsLoading(true);
@@ -107,6 +107,7 @@ export const InboxPage: React.FC = () => {
         return [candidate.id, {
           title: candidate.title,
           dueDate: dueDate?.toISOString().slice(0, 16) || '',
+          isAmbiguous: candidate.is_ambiguous,
         }];
       })));
     } catch (err: any) {
@@ -122,6 +123,7 @@ export const InboxPage: React.FC = () => {
       await api.reviewAICandidate(candidateId, action, {
         title: edits ? edits.title.trim() : undefined,
         suggested_due_date: edits?.dueDate ? new Date(edits.dueDate).toISOString() : undefined,
+        is_ambiguous: edits?.isAmbiguous,
       });
       setExtractedCandidates((prev) =>
         prev.map((c) => (c.id === candidateId ? { ...c, validation_status: action === 'approve' ? 'approved' : 'rejected' } : c))
@@ -436,6 +438,7 @@ export const InboxPage: React.FC = () => {
                                   [candidate.id]: {
                                     title: event.target.value,
                                     dueDate: current[candidate.id]?.dueDate ?? '',
+                                    isAmbiguous: current[candidate.id]?.isAmbiguous ?? candidate.is_ambiguous,
                                   },
                                 }))}
                               />
@@ -452,6 +455,7 @@ export const InboxPage: React.FC = () => {
                                   [candidate.id]: {
                                     title: current[candidate.id]?.title ?? candidate.title,
                                     dueDate: event.target.value,
+                                    isAmbiguous: current[candidate.id]?.isAmbiguous ?? candidate.is_ambiguous,
                                   },
                                 }))}
                               />
@@ -460,6 +464,23 @@ export const InboxPage: React.FC = () => {
                               <span style={{ alignSelf: 'end', color: 'var(--text-muted)', fontSize: '0.75rem' }}>
                                 No date was found in the email. Add one before approving this deadline.
                               </span>
+                            )}
+                            {candidate.candidate_type === 'deadline' && candidate.is_ambiguous && candidate.suggested_due_date && (
+                              <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', color: 'var(--text-muted)', fontSize: '0.75rem', alignSelf: 'end' }}>
+                                <input
+                                  type="checkbox"
+                                  checked={!candidateEdits[candidate.id]?.isAmbiguous}
+                                  onChange={(event) => setCandidateEdits((current) => ({
+                                    ...current,
+                                    [candidate.id]: {
+                                      title: current[candidate.id]?.title ?? candidate.title,
+                                      dueDate: current[candidate.id]?.dueDate ?? '',
+                                      isAmbiguous: !event.target.checked,
+                                    },
+                                  }))}
+                                />
+                                I confirmed this date{candidate.original_date_text ? ` ("${candidate.original_date_text}")` : ''}
+                              </label>
                             )}
                           </div>
                         )}

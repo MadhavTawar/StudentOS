@@ -11,7 +11,7 @@ from sqlalchemy import inspect
 from backend.app.core.config import settings
 from backend.app.core.logging import logger
 from backend.app.db.session import engine, Base
-from backend.app.db.migrations import migrate_legacy_knowledge_workspaces
+from backend.app.db.migrations import migrate_legacy_knowledge_workspaces, migrate_ai_candidate_metadata
 from backend.app.api.v1.router import api_router
 from backend.app.services.reminder_service import start_reminder_scheduler_task
 
@@ -104,6 +104,7 @@ async def lifespan(app: FastAPI):
         )
         raise RuntimeError("Production database is missing the Alembic version table.")
     migrate_legacy_knowledge_workspaces(engine)
+    migrate_ai_candidate_metadata(engine)
     logger.info("Database initialized successfully.")
 
     # Start background scheduler

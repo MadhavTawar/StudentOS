@@ -10,7 +10,8 @@ import {
   RefreshCw,
   Clock,
   CheckCircle2,
-  CalendarDays
+  CalendarDays,
+  ArrowRight
 } from 'lucide-react';
 import { useAuth } from '../context/useAuth';
 import { api } from '../lib/api';
@@ -217,6 +218,42 @@ export const DashboardPage: React.FC = () => {
             {data.gmail_connected ? data.gmail_email : 'Click to connect inbox'}
           </div>
         </div>
+      </div>
+
+      {/* Main Grid: Pending Tasks & Upcoming Deadlines */}
+      <div className="card" style={{ borderLeft: '4px solid var(--accent-primary)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', gap: '1rem' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <ArrowRight size={18} color="var(--accent-primary)" />
+              <h2 style={{ fontSize: '1.125rem', fontWeight: 700, color: '#ffffff', margin: 0 }}>What deserves attention next</h2>
+            </div>
+            <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', margin: '0.35rem 0 0 1.65rem' }}>
+              Based on due dates and task priority. It does not assume how much free time you have.
+            </p>
+          </div>
+          <Link to="/app/planner" style={{ fontSize: '0.8125rem', color: 'var(--accent-primary)', textDecoration: 'none', fontWeight: 600 }}>Open planner →</Link>
+        </div>
+        {data.daily_priorities.length === 0 ? (
+          <EmptyState
+            icon={<CheckCircle2 size={24} />}
+            title="Your plan is clear"
+            description="Add a task or deadline when you know what you want to work on next."
+            action={<Button variant="outline" onClick={() => setIsQuickTaskOpen(true)} icon={<Plus size={15} />}>Add a task</Button>}
+          />
+        ) : (
+          <div style={{ display: 'grid', gap: '0.5rem' }}>
+            {data.daily_priorities.map(({ task, reason }) => (
+              <div key={task.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', padding: '0.7rem 0.8rem', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-card)' }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ color: 'var(--text-main)', fontSize: '0.875rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</div>
+                  <div style={{ color: 'var(--text-dim)', fontSize: '0.75rem', marginTop: '0.2rem' }}>{reason}{task.due_date ? ` · ${new Date(task.due_date).toLocaleDateString([], { month: 'short', day: 'numeric' })}` : ''}</div>
+                </div>
+                <PriorityBadge priority={task.priority} />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Main Grid: Pending Tasks & Upcoming Deadlines */}

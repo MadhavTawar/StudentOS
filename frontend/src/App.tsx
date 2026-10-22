@@ -17,6 +17,7 @@ import { MarketingHomePage } from './pages/MarketingHomePage';
 import { WorkspacesPage } from './pages/WorkspacesPage';
 import { BillingPage } from './pages/BillingPage';
 import { JoinWorkspacePage } from './pages/JoinWorkspacePage';
+import { GoalsPage } from './pages/GoalsPage';
 
 export function App() {
   return (
@@ -32,6 +33,7 @@ export function App() {
           <Route path="/app" element={<Layout />}>
             <Route index element={<DashboardPage />} />
             <Route path="planner" element={<PlannerPage />} />
+            <Route path="goals" element={<GoalsPage />} />
             <Route path="tasks" element={<Navigate to="/app/planner?view=tasks" replace />} />
             <Route path="deadlines" element={<Navigate to="/app/planner?view=deadlines" replace />} />
             <Route path="inbox" element={<InboxPage />} />

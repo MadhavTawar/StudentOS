@@ -13,6 +13,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Users,
+  Target,
 } from 'lucide-react';
 import { api } from '../../lib/api';
 
@@ -60,6 +61,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const navItems = [
     { name: 'Study desk', path: '/app', icon: <LayoutDashboard size={19} /> },
+    { name: 'Goals', path: '/app/goals', icon: <Target size={19} /> },
     { name: 'Planner', path: '/app/planner', icon: <CheckSquare size={19} /> },
     { name: 'Inbox', path: '/app/inbox', icon: <Mail size={19} /> },
     { name: 'Shared library', path: '/app/knowledge', icon: <BookOpen size={19} /> },

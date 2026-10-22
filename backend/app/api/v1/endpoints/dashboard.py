@@ -15,6 +15,7 @@ from backend.app.schemas.gmail import EmailMessageSummary
 from backend.app.services.task_service import TaskService
 from backend.app.services.deadline_service import DeadlineService
 from backend.app.services.gmail_service import GmailService
+from backend.app.core.security import ensure_utc
 
 router = APIRouter()
 
@@ -38,8 +39,12 @@ def get_dashboard_overview(
         db,
         user_id=current_user.id,
         upcoming_only=True,
-        limit=5
+        limit=100
     )
+    upcoming_deadlines = [
+        deadline for deadline in upcoming_deadlines
+        if deadline.due_date and ensure_utc(deadline.due_date) <= now + timedelta(days=7)
+    ][:5]
 
     # 3. Pending/Active tasks
     pending_tasks, _ = TaskService.list_tasks(
@@ -47,6 +52,12 @@ def get_dashboard_overview(
         user_id=current_user.id,
         status_filter="Active",
         limit=5
+    )
+
+    daily_priorities = TaskService.get_daily_priorities(
+        db,
+        user_id=current_user.id,
+        user_timezone=current_user.preference.timezone if current_user.preference else "UTC",
     )
 
     # 4. Overdue tasks
@@ -89,6 +100,10 @@ def get_dashboard_overview(
         "stats": task_stats.model_dump(),
         "upcoming_deadlines": [DeadlineResponse.model_validate(d).model_dump() for d in upcoming_deadlines],
         "pending_tasks": [TaskResponse.model_validate(t).model_dump() for t in pending_tasks],
+        "daily_priorities": [
+            {"task": TaskResponse.model_validate(task).model_dump(), "reason": reason}
+            for task, reason in daily_priorities
+        ],
         "overdue_tasks": [TaskResponse.model_validate(t).model_dump() for t in overdue_tasks],
         "recent_emails": [EmailMessageSummary.model_validate(e).model_dump() for e in recent_emails],
         "ai_proposals": [AICandidateResponse.model_validate(c).model_dump() for c in pending_candidates],

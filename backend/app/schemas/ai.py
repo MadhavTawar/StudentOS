@@ -52,6 +52,8 @@ class AICandidateResponse(BaseModel):
     title: str
     description: Optional[str] = None
     suggested_due_date: Optional[datetime] = None
+    is_ambiguous: bool = False
+    original_date_text: Optional[str] = None
     category: str
     priority: str
     supporting_evidence: str
@@ -67,6 +69,8 @@ class AICandidateReviewRequest(BaseModel):
     # In case user edits before approving
     modified_title: Optional[str] = Field(None, min_length=1, max_length=255)
     modified_due_date: Optional[datetime] = None
+    modified_is_ambiguous: Optional[bool] = None
+    modified_original_date_text: Optional[str] = Field(None, max_length=255)
     modified_priority: Optional[str] = Field(None, pattern="^(Low|Medium|High|Urgent)$")
     modified_category: Optional[str] = Field(None, max_length=64)
 

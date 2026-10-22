@@ -87,6 +87,51 @@ def test_exam_without_explicit_date_requires_user_date_before_approval(client, a
     assert approve_with_date.json()["created_deadline_id"] is not None
 
 
+def test_ambiguous_deadline_requires_explicit_confirmation(client, auth_headers):
+    payload = {
+        "message_id": "relative-deadline",
+        "sender": "Academic Office <academics@university.edu>",
+        "subject": "Assignment deadline",
+        "snippet": "The assignment is due next Friday at 11:59 PM.",
+    }
+    extract_res = client.post("/api/v1/ai/extract-email", json=payload, headers=auth_headers)
+    assert extract_res.status_code == 200
+    candidate = next(item for item in extract_res.json() if item["candidate_type"] == "deadline")
+    assert candidate["is_ambiguous"] is True
+    assert candidate["original_date_text"]
+
+    without_confirmation = client.post(
+        f"/api/v1/ai/candidates/{candidate['id']}/review",
+        json={"action": "approve"},
+        headers=auth_headers,
+    )
+    assert without_confirmation.status_code == 422
+    assert "ambiguous date" in without_confirmation.json()["detail"]
+
+    confirmed = client.post(
+        f"/api/v1/ai/candidates/{candidate['id']}/review",
+        json={"action": "approve", "modified_is_ambiguous": False},
+        headers=auth_headers,
+    )
+    assert confirmed.status_code == 200
+    assert confirmed.json()["created_deadline_id"] is not None
+
+
+def test_reextracting_same_email_does_not_duplicate_proposals(client, auth_headers):
+    payload = {
+        "message_id": "same-email",
+        "sender": "Professor <prof@example.edu>",
+        "subject": "Assignment due tomorrow",
+        "snippet": "Submit the assignment tomorrow.",
+    }
+    first = client.post("/api/v1/ai/extract-email", json=payload, headers=auth_headers)
+    second = client.post("/api/v1/ai/extract-email", json=payload, headers=auth_headers)
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert len(second.json()) == 0
+    assert len(client.get("/api/v1/ai/candidates", headers=auth_headers).json()) == len(first.json())
+
+
 def test_unsupported_ai_provider_fails_explicitly(
     client, auth_headers, monkeypatch
 ):

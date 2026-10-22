@@ -150,6 +150,35 @@ export interface TaskStats {
   due_today: number;
 }
 
+export interface GoalMilestone {
+  id: string;
+  goal_id: string;
+  title: string;
+  target_date?: string | null;
+  status: 'Pending' | 'Completed' | 'Cancelled';
+  task_id?: string | null;
+  task_completed: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Goal {
+  id: string;
+  user_id: string;
+  title: string;
+  description?: string | null;
+  category: string;
+  target_date?: string | null;
+  weekly_minutes?: number | null;
+  status: 'Active' | 'Completed' | 'Paused' | 'Cancelled';
+  milestones: GoalMilestone[];
+  progress_percent: number;
+  completed_milestones: number;
+  total_milestones: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Deadline {
   id: string;
   user_id: string;
@@ -198,6 +227,8 @@ export interface AICandidate {
   title: string;
   description?: string;
   suggested_due_date?: string | null;
+  is_ambiguous: boolean;
+  original_date_text?: string | null;
   category: string;
   priority: TaskPriority;
   supporting_evidence: string;
@@ -242,6 +273,10 @@ export interface DashboardOverview {
   stats: TaskStats;
   upcoming_deadlines: Deadline[];
   pending_tasks: Task[];
+  daily_priorities: Array<{
+    task: Task;
+    reason: string;
+  }>;
   overdue_tasks: Task[];
   recent_emails: EmailMessage[];
   ai_proposals: AICandidate[];

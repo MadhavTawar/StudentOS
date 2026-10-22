@@ -90,3 +90,7 @@ All responses include nosniff, frame, correlation, and referrer headers. Product
 ### 2.8 Subscription foundation
 
 Each workspace has a subscription record with plan, status, provider identifiers, and period fields. Workspaces currently start on an unpriced free record. No payment integration, checkout, webhook, or entitlement enforcement is active.
+
+### 2.9 Student goals and milestones
+
+Goals are account-owned planning records separate from workspaces. A goal contains an optional target date, category, and weekly time budget. Its milestones may create linked records in the existing personal `tasks` table, so goal work appears in the same planner as academic deadlines and career preparation. Goal progress is computed at read time from completed milestones or completed linked tasks; it is not a manually editable estimate. Goal and milestone endpoints enforce the authenticated user's ownership boundary.

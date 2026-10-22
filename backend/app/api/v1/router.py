@@ -11,6 +11,7 @@ from backend.app.api.v1.endpoints import (
     health,
     knowledge,
     workspaces,
+    goals,
 )
 
 api_router = APIRouter()
@@ -26,3 +27,4 @@ api_router.include_router(reminders.router, prefix="/reminders", tags=["Reminder
 api_router.include_router(preferences.router, prefix="/preferences", tags=["User Preferences"])
 api_router.include_router(knowledge.router, prefix="/knowledge", tags=["Workspace Knowledge"])
 api_router.include_router(workspaces.router, prefix="/workspaces", tags=["Workspaces and Plans"])
+api_router.include_router(goals.router, prefix="/goals", tags=["Student Goals"])

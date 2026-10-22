@@ -137,7 +137,7 @@ class OfflineRuleBasedProvider(BaseAIProvider):
                     title=f"Submission Deadline: {request.subject}",
                     event_type="Assignment",
                     due_date=candidate_due,
-                    is_ambiguous=False,
+                    is_ambiguous=re.search(r"\bnext\b", date_and_time.group(0), re.IGNORECASE) is not None,
                     original_date_text=date_and_time.group(0),
                     supporting_evidence=evidence,
                     confidence_score=confidence
@@ -457,6 +457,15 @@ class AIService:
 
         # Store task proposals
         for task_cand in extraction.tasks:
+            existing = db.query(AIExtractionCandidate).filter(
+                AIExtractionCandidate.user_id == user_id,
+                AIExtractionCandidate.source_email_id == request.message_id,
+                AIExtractionCandidate.candidate_type == "task",
+                AIExtractionCandidate.title.ilike(task_cand.title.strip()),
+                AIExtractionCandidate.validation_status.in_(["pending_review", "approved", "modified"]),
+            ).first()
+            if existing:
+                continue
             cand = AIExtractionCandidate(
                 user_id=user_id,
                 source_email_id=request.message_id,
@@ -467,6 +476,7 @@ class AIService:
                 title=task_cand.title,
                 description=task_cand.description,
                 suggested_due_date=task_cand.due_date,
+                is_ambiguous=False,
                 category=task_cand.category,
                 priority=task_cand.priority,
                 supporting_evidence=task_cand.supporting_evidence,
@@ -478,6 +488,15 @@ class AIService:
 
         # Store deadline proposals
         for d_cand in extraction.deadlines:
+            existing = db.query(AIExtractionCandidate).filter(
+                AIExtractionCandidate.user_id == user_id,
+                AIExtractionCandidate.source_email_id == request.message_id,
+                AIExtractionCandidate.candidate_type == "deadline",
+                AIExtractionCandidate.title.ilike(d_cand.title.strip()),
+                AIExtractionCandidate.validation_status.in_(["pending_review", "approved", "modified"]),
+            ).first()
+            if existing:
+                continue
             cand = AIExtractionCandidate(
                 user_id=user_id,
                 source_email_id=request.message_id,
@@ -488,6 +507,8 @@ class AIService:
                 title=d_cand.title,
                 description=f"Extracted deadline: {d_cand.event_type}",
                 suggested_due_date=d_cand.due_date,
+                is_ambiguous=d_cand.is_ambiguous,
+                original_date_text=d_cand.original_date_text,
                 category=d_cand.event_type,
                 priority="High",
                 supporting_evidence=d_cand.supporting_evidence,
@@ -547,6 +568,16 @@ class AIService:
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="This deadline has no confirmed date. Set a due date before approving it."
             )
+        final_is_ambiguous = (
+            review.modified_is_ambiguous
+            if review.modified_is_ambiguous is not None
+            else cand.is_ambiguous and cand.suggested_due_date is not None
+        )
+        if review.action != "reject" and cand.candidate_type == "deadline" and final_is_ambiguous:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="This deadline has an ambiguous date. Confirm the date before approving it.",
+            )
 
         now = datetime.now(timezone.utc)
         cand.reviewed_at = now
@@ -562,6 +593,7 @@ class AIService:
         final_title = review.modified_title or cand.title
         final_priority = review.modified_priority or cand.priority
         final_category = review.modified_category or cand.category
+        final_original_date_text = review.modified_original_date_text or cand.original_date_text
 
         if cand.candidate_type == "task":
             new_task = Task(
@@ -586,6 +618,8 @@ class AIService:
                 description=f"Evidence: \"{cand.supporting_evidence}\"",
                 event_type=final_category,
                 due_date=final_due,
+                is_ambiguous=final_is_ambiguous,
+                original_date_text=final_original_date_text,
                 status="Upcoming",
                 source_type="ai_proposal",
                 source_ref=cand.source_email_id

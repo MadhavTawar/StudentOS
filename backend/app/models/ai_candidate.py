@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, DateTime, Float, ForeignKey, String, Text, JSON, Index
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, String, Text, JSON, Index
 from sqlalchemy.orm import relationship
 from backend.app.db.session import Base
 
@@ -24,6 +24,8 @@ class AIExtractionCandidate(Base):
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     suggested_due_date = Column(DateTime(timezone=True), nullable=True)
+    is_ambiguous = Column(Boolean, default=False, nullable=False)
+    original_date_text = Column(String(255), nullable=True)
     category = Column(String(64), default="Assignment", nullable=False)
     priority = Column(String(32), default="Medium", nullable=False)
     supporting_evidence = Column(Text, nullable=False)  # Short quoted excerpt from source email

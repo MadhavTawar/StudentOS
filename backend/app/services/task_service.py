@@ -1,5 +1,6 @@
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Tuple
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from fastapi import HTTPException, status
 from sqlalchemy import or_, and_, desc, asc
 from sqlalchemy.orm import Session
@@ -9,6 +10,58 @@ from backend.app.core.security import ensure_utc
 
 
 class TaskService:
+    @staticmethod
+    def get_daily_priorities(
+        db: Session,
+        user_id: str,
+        user_timezone: str = "UTC",
+        limit: int = 5,
+    ) -> List[Tuple[Task, str]]:
+        """Return active tasks ordered by transparent, deterministic urgency signals."""
+        try:
+            local_zone = ZoneInfo(user_timezone or "UTC")
+        except ZoneInfoNotFoundError:
+            local_zone = timezone.utc
+
+        now = datetime.now(timezone.utc)
+        local_now = now.astimezone(local_zone)
+        local_today = local_now.date()
+        priority_weight = {"Urgent": 40, "High": 30, "Medium": 20, "Low": 10}
+        active_tasks = (
+            db.query(Task)
+            .filter(Task.user_id == user_id, Task.status.in_(["Pending", "In Progress"]))
+            .all()
+        )
+
+        ranked = []
+        for task in active_tasks:
+            due = ensure_utc(task.due_date) if task.due_date else None
+            local_due = due.astimezone(local_zone) if due else None
+            is_overdue = bool(due and due < now)
+            is_today = bool(local_due and local_due.date() == local_today and not is_overdue)
+            due_soon = bool(due and not is_overdue and due <= now + timedelta(days=2))
+
+            score = priority_weight.get(task.priority, 2)
+            reason_parts = []
+            if is_overdue:
+                score += 100
+                reason_parts.append("overdue")
+            elif is_today:
+                score += 50
+                reason_parts.append("due today")
+            elif due_soon:
+                score += 25
+                reason_parts.append("due within 48 hours")
+            if task.priority in {"Urgent", "High"}:
+                reason_parts.append(f"{task.priority.lower()} priority")
+            if not reason_parts:
+                reason_parts.append("highest remaining priority")
+
+            ranked.append((score, due or datetime.max.replace(tzinfo=timezone.utc), task.created_at, task, ", ".join(reason_parts)))
+
+        ranked.sort(key=lambda item: (-item[0], item[1], item[2]))
+        return [(item[3], item[4]) for item in ranked[:limit]]
+
     @staticmethod
     def get_task(db: Session, user_id: str, task_id: str) -> Task:
         """Fetch task ensuring strict ownership validation."""

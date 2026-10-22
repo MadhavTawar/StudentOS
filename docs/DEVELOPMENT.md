@@ -88,6 +88,14 @@ The frontend does not currently have a unit-test framework configured. The backe
 
 GitHub Actions runs backend tests and the frontend install, production build, and lint checks on pushes and pull requests.
 
+## Dashboard planning behavior
+
+The dashboard overview includes `daily_priorities`, a backward-compatible list of up to five active tasks. The backend ranks these deterministically using overdue state, the user's configured timezone, due-today or due-within-48-hours windows, and task priority. Each item includes a short `reason` so the UI can explain why it is shown. The dashboard's `upcoming_deadlines` is limited to the next seven days. This planning layer does not infer a student's available free time and does not require an AI provider.
+
+Email extraction stores proposals with source evidence and date-ambiguity metadata. Re-extracting the same email does not create duplicate pending or approved proposals. A deadline with an ambiguous extracted date must be explicitly confirmed during review before it can be saved; rejected proposals never create tasks or deadlines.
+
+Goals are managed through `/api/v1/goals/`. Adding a milestone creates a linked planner task by default; completing either the milestone or its linked task contributes to the computed goal progress. The schema migration `b7c4d1e2f901` creates the goal tables in production.
+
 ## Configuration notes
 
 - `.env` is loaded from the repository root when the backend starts from that directory.
