@@ -61,13 +61,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const navItems = [
     { name: 'Study desk', path: '/app', icon: <LayoutDashboard size={19} /> },
-    { name: 'Goals', path: '/app/goals', icon: <Target size={19} /> },
     { name: 'Planner', path: '/app/planner', icon: <CheckSquare size={19} /> },
+    { name: 'Goals', path: '/app/goals', icon: <Target size={19} /> },
     { name: 'Inbox', path: '/app/inbox', icon: <Mail size={19} /> },
     { name: 'Shared library', path: '/app/knowledge', icon: <BookOpen size={19} /> },
-    ...(showDocumentDesk
-      ? [{ name: 'Library manager', path: '/app/knowledge/manage', icon: <BookOpen size={19} /> }]
-      : []),
     {
       name: 'Study guide',
       path: '/app/assistant',
