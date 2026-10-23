@@ -1,26 +1,14 @@
-import React, { useEffect, useState } from 'react';
-import { Outlet, Navigate, useLocation } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
-import { Sidebar } from './Sidebar';
-import { Navbar } from './Navbar';
-import { LoadingSkeleton } from '../common/LoadingSkeleton';
+import { TopBar } from './TopBar';
 import { api } from '../../lib/api';
+import { LoadingSkeleton } from '../common/LoadingSkeleton';
 
 export const Layout: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { pathname } = useLocation();
   const isWorkspaceShell = pathname.startsWith('/app/knowledge') || pathname.startsWith('/app/assistant');
-
-  useEffect(() => {
-    if (!isSidebarOpen) return;
-
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setIsSidebarOpen(false);
-    };
-    window.addEventListener('keydown', closeOnEscape);
-    return () => window.removeEventListener('keydown', closeOnEscape);
-  }, [isSidebarOpen]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -30,7 +18,11 @@ export const Layout: React.FC = () => {
     let isCurrent = true;
     void api.getPreferences()
       .then((preferences) => {
-        if (isCurrent) document.documentElement.dataset.theme = preferences.theme === 'dark' ? 'dark' : 'light';
+        if (isCurrent) {
+          const resolved = preferences.theme === 'dark' ? 'dark' : 'light';
+          document.documentElement.dataset.theme = resolved;
+          try { localStorage.setItem('studentos-theme', resolved); } catch {}
+        }
       })
       .catch(() => {
         if (isCurrent) document.documentElement.dataset.theme = 'light';
@@ -68,22 +60,8 @@ export const Layout: React.FC = () => {
 
   return (
     <div className={`app-shell${isWorkspaceShell ? ' app-shell-workspace' : ' app-shell-study'}`}>
-      {isSidebarOpen && (
-        <button
-          type="button"
-          className="sidebar-backdrop"
-          aria-label="Close navigation menu"
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
-      <Sidebar mobileOpen={isSidebarOpen} onNavigate={() => setIsSidebarOpen(false)} />
-
       <div className="app-content">
-        <Navbar
-          onMenuClick={() => setIsSidebarOpen(true)}
-          isMenuOpen={isSidebarOpen}
-          isWorkspaceShell={isWorkspaceShell}
-        />
+        <TopBar />
         <main className="app-main">
           <div className="app-main-inner">
             <Outlet />

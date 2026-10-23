@@ -222,7 +222,7 @@ export const DashboardPage: React.FC = () => {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
               <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', fontWeight: 600 }}>Integration Status</div>
-              <div style={{ fontSize: '1.125rem', fontWeight: 700, color: '#ffffff', marginTop: '0.5rem' }}>
+              <div style={{ fontSize: '1.75rem', fontWeight: 700, color: '#ffffff', marginTop: '0.5rem' }}>
                 {data.gmail_connected ? 'Gmail Connected' : 'Gmail Disconnected'}
               </div>
             </div>

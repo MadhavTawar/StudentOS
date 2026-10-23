@@ -1,5 +1,6 @@
 .app-shell {
   display: flex;
+  flex-direction: column;
   min-height: 100vh;
   min-height: 100dvh;
   background: var(--bg-main);
@@ -1406,6 +1407,22 @@ main > section > h1 {
 
   .dashboard-calendar-day {
     min-height: 35px;
+  }
+}
+
+@media (max-width: 390px) {
+  .dashboard-stat-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .dashboard-stat .card > div:first-child {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .dashboard-stat .card > div:first-child > div:last-child {
+    align-self: flex-start;
   }
 }
 
