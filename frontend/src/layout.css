@@ -87,13 +87,7 @@
   text-overflow: ellipsis;
 }
 
-.app-shell-workspace .topbar-brand,
-.app-shell-workspace .topbar-navigation {
-  display: none;
-}
-
 .login-screen {
-  position: relative;
   isolation: isolate;
   overflow: hidden;
   background:
