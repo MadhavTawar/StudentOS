@@ -141,18 +141,30 @@ export const DashboardPage: React.FC = () => {
   const selectedDayTasks = data.pending_tasks.filter((task) => task.due_date && dateKey(new Date(task.due_date)) === selectedDateKey);
   const selectedDayDeadlines = data.upcoming_deadlines.filter((deadline) => dateKey(new Date(deadline.due_date)) === selectedDateKey);
 
-  const hourGroups = new Map<string, { label: string; tasks: any[] }>();
-  const anytimeTasks: any[] = [];
-  data.pending_tasks.forEach((task) => {
-    if (task.due_date) {
-      const d = new Date(task.due_date);
-      const key = String(d.getHours()).padStart(2, '0');
-      const label = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      if (!hourGroups.has(key)) hourGroups.set(key, { label, tasks: [] });
-      hourGroups.get(key)!.tasks.push(task);
-    } else {
-      anytimeTasks.push(task);
+  const todayKey = dateKey(currentDate);
+
+  const hourGroups = new Map<string, { label: string; items: any[] }>();
+  const anytimeItems: any[] = [];
+
+  const todayItems = [
+    ...data.pending_tasks.filter((t) => t.due_date && dateKey(new Date(t.due_date)) === todayKey),
+    ...data.upcoming_deadlines.filter((d) => dateKey(new Date(d.due_date)) === todayKey),
+  ];
+
+  todayItems.forEach((item) => {
+    if (!item.due_date) {
+      anytimeItems.push(item);
+      return;
     }
+    const d = new Date(item.due_date);
+    if (d.getHours() === 0 && d.getMinutes() === 0 && d.getSeconds() === 0 && d.getMilliseconds() === 0) {
+      anytimeItems.push(item);
+      return;
+    }
+    const key = String(d.getHours()).padStart(2, '0');
+    const label = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (!hourGroups.has(key)) hourGroups.set(key, { label, items: [] });
+    hourGroups.get(key)!.items.push(item);
   });
 
   const statTiles = [
@@ -236,57 +248,62 @@ export const DashboardPage: React.FC = () => {
               <Link to="/app/planner" className="dashboard-card-link">Open planner <ArrowRight size={13} /></Link>
             </div>
             <div className="dashboard-timeline">
-              {Array.from(hourGroups.entries()).map(([key, { label, tasks }]) => (
+              {Array.from(hourGroups.entries()).map(([key, { label, items }]) => (
                 <div key={key} className="dashboard-timeline-slot">
                   <span className="dashboard-timeline-time">{label}</span>
                   <div className="dashboard-timeline-items">
-                    {tasks.map((task) => (
-                      <div key={task.id} className="dashboard-timeline-item">
+                    {items.map((item) => (
+                      <div key={item.id} className="dashboard-timeline-item">
                         <input
                           type="checkbox"
-                          checked={task.status === 'Completed'}
-                          aria-label={`Complete ${task.title}`}
-                          onChange={() => handleToggleTask(task.id)}
+                          checked={item.status === 'Completed'}
+                          aria-label={`Complete ${item.title}`}
+                          onChange={() => handleToggleTask(item.id)}
                           className="dashboard-checkbox"
                         />
                         <div className="dashboard-timeline-item-body">
-                          <div className="dashboard-timeline-item-title">{task.title}</div>
-                          {task.due_date && (
+                          <div className="dashboard-timeline-item-title">{item.title}</div>
+                          {item.due_date && (
                             <div className="dashboard-timeline-item-meta">
-                              {new Date(task.due_date).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                              {new Date(item.due_date).toLocaleDateString([], { month: 'short', day: 'numeric' })}
                             </div>
                           )}
                         </div>
-                        <PriorityBadge priority={task.priority} />
+                        {item.priority && <PriorityBadge priority={item.priority} />}
                       </div>
                     ))}
                   </div>
                 </div>
               ))}
-              {anytimeTasks.length > 0 && (
+              {anytimeItems.length > 0 && (
                 <div className="dashboard-timeline-slot">
                   <span className="dashboard-timeline-time">Anytime</span>
                   <div className="dashboard-timeline-items">
-                    {anytimeTasks.map((task) => (
-                      <div key={task.id} className="dashboard-timeline-item">
+                    {anytimeItems.map((item) => (
+                      <div key={item.id} className="dashboard-timeline-item">
                         <input
                           type="checkbox"
-                          checked={task.status === 'Completed'}
-                          aria-label={`Complete ${task.title}`}
-                          onChange={() => handleToggleTask(task.id)}
+                          checked={item.status === 'Completed'}
+                          aria-label={`Complete ${item.title}`}
+                          onChange={() => handleToggleTask(item.id)}
                           className="dashboard-checkbox"
                         />
                         <div className="dashboard-timeline-item-body">
-                          <div className="dashboard-timeline-item-title">{task.title}</div>
+                          <div className="dashboard-timeline-item-title">{item.title}</div>
                         </div>
-                        <PriorityBadge priority={task.priority} />
+                        {item.priority && <PriorityBadge priority={item.priority} />}
                       </div>
                     ))}
                   </div>
                 </div>
               )}
-              {hourGroups.size === 0 && anytimeTasks.length === 0 && (
-                <div className="dashboard-timeline-empty">No tasks scheduled for today.</div>
+              {hourGroups.size === 0 && anytimeItems.length === 0 && (
+                <div className="dashboard-timeline-empty">
+                  Nothing due today.
+                  <Button variant="outline" size="sm" onClick={() => setIsQuickTaskOpen(true)} icon={<Plus size={14} />}>
+                    Add task
+                  </Button>
+                </div>
               )}
             </div>
           </section>

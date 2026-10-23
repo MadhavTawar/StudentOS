@@ -2461,6 +2461,17 @@ main > section > h1 {
   .dashboard-task-chevr {
     align-self: flex-start;
   }
+
+  .dashboard-timeline-slot {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  .dashboard-timeline-time {
+    min-width: auto;
+    text-align: left;
+    margin-bottom: 0.25rem;
+  }
 }
 
 /* Inbox Page (Phase 5) */
