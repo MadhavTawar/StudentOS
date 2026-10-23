@@ -182,20 +182,15 @@ export const TopBar: React.FC = () => {
         </form>
 
         <div className="topbar-actions">
-          <div className="notification-control" style={{ position: 'relative' }}>
+          <div className="notification-control">
             <button
               type="button"
               onClick={() => setIsNotifOpen((open) => !open)}
-              className="btn btn-outline btn-icon"
+              className={`btn btn-outline btn-icon${unreadCount > 0 ? ' is-unread' : ''}`}
               aria-label="Notifications"
               aria-expanded={isNotifOpen}
               aria-haspopup="menu"
               title="Notifications"
-              style={{
-                position: 'relative',
-                color: unreadCount > 0 ? 'var(--accent-primary)' : 'var(--text-muted)',
-                borderColor: unreadCount > 0 ? 'var(--accent-primary)' : 'var(--border-card)',
-              }}
             >
               <Bell size={18} />
               {unreadCount > 0 && (
@@ -309,7 +304,7 @@ export const TopBar: React.FC = () => {
             onKeyDown={handleKeyDown}
           />
           <div
-            className="topbar-account-menu"
+            className={`topbar-account-menu${isAccountOpen ? ' is-open' : ''}`}
             onKeyDown={handleKeyDown}
           >
             <div className="topbar-account-menu-header">
