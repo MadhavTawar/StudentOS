@@ -527,11 +527,9 @@ main > section > h1 {
   min-height: 126px;
   overflow: hidden;
   padding: 1.15rem 1.3rem;
-  border: 1px solid #e2d5c2;
+  border: 1px solid var(--border-card);
   border-radius: 10px;
-  background:
-    radial-gradient(ellipse at 95% 10%, rgba(208, 160, 113, 0.2), transparent 19rem),
-    linear-gradient(110deg, #fffdf8, #f7f0e3);
+  background: var(--bg-card);
   box-shadow: var(--shadow-card);
 }
 
@@ -541,7 +539,7 @@ main > section > h1 {
   right: 18%;
   width: 1px;
   height: 100%;
-  background: linear-gradient(transparent, rgba(159, 119, 77, 0.12), transparent);
+  background: linear-gradient(transparent, color-mix(in srgb, var(--text-muted) 20%, transparent), transparent);
   content: '';
   transform: rotate(24deg) scale(1.5);
 }
@@ -551,7 +549,7 @@ main > section > h1 {
   align-items: center;
   gap: 0.42rem;
   margin-bottom: 0.3rem;
-  color: #8a7860;
+  color: var(--text-muted);
   font-size: 0.59rem;
   font-weight: 700;
   letter-spacing: 0.14em;
@@ -588,10 +586,10 @@ main > section > h1 {
   align-items: center;
   gap: 0.38rem;
   padding: 0.35rem 0.55rem;
-  color: #7b6853;
-  border: 1px solid #e8dccb;
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
   border-radius: 6px;
-  background: rgba(255, 253, 248, 0.75);
+  background: color-mix(in srgb, var(--bg-input) 80%, transparent);
   font-size: 0.68rem;
   font-weight: 600;
 }
