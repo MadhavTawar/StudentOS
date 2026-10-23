@@ -27,13 +27,13 @@ export const BillingPage: React.FC = () => {
   if (isLoading) return <div className="card">Loading plan details…</div>;
 
   return (
-    <section style={{ maxWidth: 760, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+    <section className="account-page billing-page">
       <header>
         <span className="sidebar-section-label">ACCOUNT</span>
-        <h1 style={{ margin: '0.35rem 0', color: 'var(--text-main)' }}>Plan & billing</h1>
-        <p style={{ color: 'var(--text-muted)', margin: 0 }}>Plan information belongs to each workspace.</p>
+        <h1 className="page-title page-title-dark">Plan & billing</h1>
+        <p className="page-description">Plan information belongs to each workspace.</p>
       </header>
-      {error && <div className="card" role="alert" style={{ color: '#fca5a5' }}>{error}</div>}
+      {error && <div className="card form-error" role="alert">{error}</div>}
       {billing && workspace && (
         <article className="card" style={{ padding: '1.5rem' }}>
           <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>

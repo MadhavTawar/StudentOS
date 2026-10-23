@@ -151,14 +151,14 @@ export const TasksPage: React.FC = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+    <div className="productivity-page">
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+      <div className="page-heading">
         <div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em' }}>
+          <h1 className="page-title">
             Task Management
           </h1>
-          <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+          <p className="page-description">
             Track academic assignments, laboratory coursework, and examination prep.
           </p>
         </div>
@@ -170,18 +170,10 @@ export const TasksPage: React.FC = () => {
 
       {/* Filter and Search Bar */}
       <div
-        className="card"
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: '0.75rem',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0.875rem 1rem',
-        }}
+        className="card planner-toolbar"
       >
-        <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: '0.5rem', flex: '1 1 260px' }}>
-          <div style={{ position: 'relative', width: '100%' }}>
+        <form onSubmit={handleSearchSubmit} className="task-search-form">
+          <div className="task-search-field">
             <input
               type="text"
               className="input"
@@ -189,6 +181,7 @@ export const TasksPage: React.FC = () => {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{ paddingLeft: '2.25rem' }}
+              aria-label="Search tasks"
             />
             <Search
               size={16}
@@ -198,7 +191,7 @@ export const TasksPage: React.FC = () => {
           </div>
         </form>
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
+        <div className="task-filters">
           <select
             className="input"
             style={{ width: 'auto', padding: '0.5rem 0.75rem' }}
@@ -240,9 +233,11 @@ export const TasksPage: React.FC = () => {
           </select>
 
           <button
+            type="button"
             onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
             className="btn btn-outline btn-sm"
             title="Toggle sort order"
+            aria-label={`Sort tasks ${sortOrder === 'asc' ? 'descending' : 'ascending'}`}
           >
             <ArrowUpDown size={14} />
             {sortOrder.toUpperCase()}
@@ -268,22 +263,14 @@ export const TasksPage: React.FC = () => {
           action={<Button variant="primary" onClick={openCreateModal}>Create First Task</Button>}
         />
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        <div className="planner-list">
           {tasks.map((task) => (
             <div
               key={task.id}
-              className="card card-hover"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '1rem 1.25rem',
-                gap: '1rem',
-                opacity: task.status === 'Completed' ? 0.7 : 1,
-              }}
+              className={`card card-hover task-row ${task.status === 'Completed' ? 'is-completed' : ''}`}
             >
               {/* Checkbox and Title */}
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.875rem', flex: 1 }}>
+              <div className="task-main">
                 <input
                   type="checkbox"
                   checked={task.status === 'Completed'}
@@ -296,36 +283,23 @@ export const TasksPage: React.FC = () => {
                     marginTop: '3px',
                   }}
                 />
-                <div style={{ flex: 1 }}>
-                  <div
-                    style={{
-                      fontSize: '0.9375rem',
-                      fontWeight: 600,
-                      color: task.status === 'Completed' ? 'var(--text-muted)' : '#ffffff',
-                      textDecoration: task.status === 'Completed' ? 'line-through' : 'none',
-                    }}
-                  >
+                <div className="task-content">
+                  <div className="task-title">
                     {task.title}
                   </div>
                   {task.description && (
-                    <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                    <div className="task-description">
                       {task.description}
                     </div>
                   )}
 
                   {/* Metadata Tags */}
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center', marginTop: '0.5rem' }}>
+                  <div className="task-meta">
                     <CategoryBadge category={task.category} />
                     <PriorityBadge priority={task.priority} />
                     {task.due_date && (
                       <span
-                        style={{
-                          fontSize: '0.75rem',
-                          color: new Date(task.due_date) < currentTime && task.status !== 'Completed' ? '#f87171' : 'var(--text-dim)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                        }}
+                        className={`task-due ${new Date(task.due_date) < currentTime && task.status !== 'Completed' ? 'is-overdue' : ''}`}
                       >
                         <Clock size={12} />
                         {new Date(task.due_date).toLocaleDateString([], {
@@ -337,7 +311,7 @@ export const TasksPage: React.FC = () => {
                       </span>
                     )}
                     {task.source_type !== 'manual' && (
-                      <span className="badge" style={{ backgroundColor: 'rgba(99, 102, 241, 0.1)', color: 'var(--accent-primary)' }}>
+                      <span className="badge task-source-badge">
                         From {task.source_type}
                       </span>
                     )}
@@ -346,18 +320,22 @@ export const TasksPage: React.FC = () => {
               </div>
 
               {/* Actions */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <div className="task-actions">
                 <button
+                  type="button"
                   onClick={() => openEditModal(task)}
                   className="btn btn-outline btn-icon btn-sm"
                   title="Edit task"
+                  aria-label={`Edit ${task.title}`}
                 >
                   <Edit2 size={16} />
                 </button>
                 <button
+                  type="button"
                   onClick={() => setDeletingTaskId(task.id)}
                   className="btn btn-danger btn-icon btn-sm"
                   title="Delete task"
+                  aria-label={`Delete ${task.title}`}
                 >
                   <Trash2 size={16} />
                 </button>

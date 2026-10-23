@@ -85,17 +85,17 @@ export const WorkspacesPage: React.FC = () => {
   if (isLoading) return <div className="card">Loading workspaces…</div>;
 
   return (
-    <section style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+    <section className="account-page workspace-page">
       <header>
         <span className="sidebar-section-label">YOUR ACCOUNT</span>
-        <h1 style={{ margin: '0.35rem 0', color: 'var(--text-main)' }}>Workspaces</h1>
-        <p style={{ color: 'var(--text-muted)', margin: 0 }}>
+        <h1 className="page-title page-title-dark">Workspaces</h1>
+        <p className="page-description">
           Keep your study data personal. Share a library with collaborators only through an organization workspace.
         </p>
       </header>
 
-      {error && <div className="card" role="alert" style={{ color: '#fca5a5' }}>{error}</div>}
-      {notice && <div className="card" role="status" style={{ color: '#34d399' }}>{notice}</div>}
+      {error && <div className="card form-error" role="alert">{error}</div>}
+      {notice && <div className="card form-success" role="status">{notice}</div>}
 
       <section className="card" style={{ padding: '1.25rem' }}>
         <label className="label" htmlFor="workspace-select">Active workspace</label>

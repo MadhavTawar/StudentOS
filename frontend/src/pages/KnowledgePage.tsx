@@ -1,5 +1,5 @@
 import React, { FormEvent, useEffect, useRef, useState } from 'react';
-import { ArrowUp, BookOpen, FileText, Search, ShieldCheck } from 'lucide-react';
+import { ArrowUp, BookOpen, Download, FileText, Search, ShieldCheck } from 'lucide-react';
 import { api } from '../lib/api';
 import { KnowledgeAccess, KnowledgeChatResponse, KnowledgeLibraryItem } from '../types';
 import './KnowledgePage.css';
@@ -9,11 +9,23 @@ interface KnowledgeTurn {
   result: KnowledgeChatResponse;
 }
 
+interface DocumentPreview {
+  documentId: string;
+  versionId: string;
+  url?: string;
+  contentType?: string;
+  error?: string;
+}
+
 const errorText = (error: unknown) =>
   error instanceof Error ? error.message : 'Please check that the StudentOS service is available.';
 
 export const KnowledgePage: React.FC = () => {
   const [library, setLibrary] = useState<KnowledgeLibraryItem[]>([]);
+  const [selectedDocumentId, setSelectedDocumentId] = useState('');
+  const [selectedVersionId, setSelectedVersionId] = useState('');
+  const [preview, setPreview] = useState<DocumentPreview | null>(null);
+  const [activeMobilePanel, setActiveMobilePanel] = useState<'documents' | 'preview' | 'assistant'>('documents');
   const [access, setAccess] = useState<KnowledgeAccess | null>(null);
   const [turns, setTurns] = useState<KnowledgeTurn[]>([]);
   const [question, setQuestion] = useState('');
@@ -27,11 +39,47 @@ export const KnowledgePage: React.FC = () => {
     Promise.all([api.listKnowledgeLibrary(), api.getKnowledgeAccess()])
       .then(([items, currentAccess]) => {
         setLibrary(items);
+        setSelectedDocumentId(items[0]?.id ?? '');
+        setSelectedVersionId(items[0]?.version_id ?? '');
         setAccess(currentAccess);
       })
       .catch((loadError: unknown) => setError(errorText(loadError)))
       .finally(() => setIsLoadingLibrary(false));
   }, []);
+
+  const selectedDocument = library.find((item) => item.id === selectedDocumentId) ?? library[0] ?? null;
+  const previewDocumentId = selectedDocument?.id;
+  const previewVersionId = selectedVersionId || selectedDocument?.version_id || '';
+
+  useEffect(() => {
+    if (!previewDocumentId || !previewVersionId) return;
+    let isCurrent = true;
+    let objectUrl: string | undefined;
+    api.downloadKnowledgeVersion(previewDocumentId, previewVersionId)
+      .then((blob) => {
+        if (!isCurrent) return;
+        objectUrl = URL.createObjectURL(blob);
+        setPreview({
+          documentId: previewDocumentId,
+          versionId: previewVersionId,
+          url: objectUrl,
+          contentType: blob.type,
+        });
+      })
+      .catch((loadError: unknown) => {
+        if (isCurrent) {
+          setPreview({
+            documentId: previewDocumentId,
+            versionId: previewVersionId,
+            error: errorText(loadError),
+          });
+        }
+      });
+    return () => {
+      isCurrent = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [previewDocumentId, previewVersionId]);
 
   const askQuestion = async (event: FormEvent) => {
     event.preventDefault();
@@ -74,8 +122,90 @@ export const KnowledgePage: React.FC = () => {
         <p>Ask questions about published workspace resources and check every answer against its sources.</p>
       </header>
 
-      <div className="knowledge-layout">
-        <section className="knowledge-chat-panel" aria-label="Workspace knowledge assistant">
+      <div className="knowledge-mobile-tabs" role="tablist" aria-label="Knowledge workspace panels">
+        {([
+          ['documents', 'Documents'],
+          ['preview', 'Reader'],
+          ['assistant', 'Ask'],
+        ] as const).map(([panel, label]) => (
+          <button key={panel} id={`knowledge-tab-${panel}`} type="button" role="tab" aria-controls={`knowledge-panel-${panel}`} aria-selected={activeMobilePanel === panel} onClick={() => setActiveMobilePanel(panel)}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div className="knowledge-layout" data-active-panel={activeMobilePanel}>
+        <aside id="knowledge-panel-documents" role="tabpanel" aria-labelledby="knowledge-tab-documents" className="knowledge-documents-panel" aria-label="Published workspace documents">
+          <div className="knowledge-panel-heading">
+            <div className="knowledge-panel-icon"><FileText size={18} /></div>
+            <div><h2>Library</h2><p>{library.length} published {library.length === 1 ? 'document' : 'documents'}</p></div>
+          </div>
+          {error && <p className="knowledge-error" role="alert">{error}</p>}
+          {isLoadingLibrary ? (
+            <p className="knowledge-library-empty">Loading the published library…</p>
+          ) : library.length === 0 ? (
+            <p className="knowledge-library-empty">No workspace references have been published yet.</p>
+          ) : (
+            <ul className="knowledge-document-list">
+              {library.map((document) => (
+                <li key={document.id}>
+                  <button
+                    type="button"
+                    className={`knowledge-document-select${selectedDocument?.id === document.id ? ' is-selected' : ''}`}
+                    aria-pressed={selectedDocument?.id === document.id}
+                    onClick={() => {
+                      setSelectedDocumentId(document.id);
+                      setSelectedVersionId(document.version_id);
+                      setPreview(null);
+                      setActiveMobilePanel('preview');
+                    }}
+                  >
+                    <span className="knowledge-document-category">{document.category}</span>
+                    <strong>{document.title}</strong>
+                    {document.description && <span className="knowledge-document-description">{document.description}</span>}
+                    <small>Version {document.version_number}{document.page_count > 0 ? ` · ${document.page_count} pages` : ''}</small>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="knowledge-library-footnote">Only current, published documents are searchable. Archived or superseded versions are excluded.</p>
+        </aside>
+
+        <section id="knowledge-panel-preview" role="tabpanel" aria-labelledby="knowledge-tab-preview" className="knowledge-reader-panel" aria-label="Selected document">
+          {!selectedDocument ? (
+            <div className="knowledge-reader-empty"><BookOpen size={28} /><h2>Select a published document</h2><p>Choose a document from the workspace library to inspect its details.</p></div>
+          ) : (
+            <>
+              <div className="knowledge-reader-heading">
+                <div>
+                  <span className="knowledge-document-category">{selectedDocument.category}</span>
+                  <h2>{selectedDocument.title}</h2>
+                  <p>Version {selectedDocument.version_number}{selectedDocument.page_count > 0 ? ` · ${selectedDocument.page_count} pages` : ''}</p>
+                </div>
+                <button type="button" className="knowledge-reader-download" onClick={() => void downloadSource(selectedDocument.id, previewVersionId, selectedDocument.title)}>
+                  <Download size={15} /><span>Download</span>
+                </button>
+              </div>
+              {selectedDocument.description && <p className="knowledge-reader-description">{selectedDocument.description}</p>}
+              <div className="knowledge-document-preview" aria-live="polite">
+                {!preview || preview.documentId !== selectedDocument.id || preview.versionId !== previewVersionId ? (
+                  <p className="knowledge-library-empty">Loading authorized document preview…</p>
+                ) : preview.error ? (
+                  <div className="knowledge-reader-empty" role="alert"><FileText size={26} /><h3>Preview unavailable</h3><p>{preview.error}</p></div>
+                ) : preview.contentType === 'application/pdf' && preview.url ? (
+                  <iframe title={`Preview of ${selectedDocument.title}`} src={preview.url} />
+                ) : preview.contentType?.startsWith('image/') && preview.url ? (
+                  <img src={preview.url} alt={`Preview of ${selectedDocument.title}`} />
+                ) : (
+                  <div className="knowledge-reader-empty"><FileText size={26} /><h3>Document selected</h3><p>This file type is not previewable here. Use Download to view the original file.</p></div>
+                )}
+              </div>
+            </>
+          )}
+        </section>
+
+        <section id="knowledge-panel-assistant" role="tabpanel" aria-labelledby="knowledge-tab-assistant" className="knowledge-chat-panel" aria-label="Workspace knowledge assistant">
           <div className="knowledge-panel-heading">
             <div className="knowledge-panel-icon"><BookOpen size={19} /></div>
             <div>
@@ -95,6 +225,7 @@ export const KnowledgePage: React.FC = () => {
               <article className="knowledge-turn" key={`${index}-${asked}`}>
                 <p className="knowledge-question">{asked}</p>
                 <div className={`knowledge-answer${result.insufficient_evidence ? ' is-insufficient' : ''}`}>
+                  {result.insufficient_evidence && <strong className="knowledge-evidence-warning">Evidence is insufficient</strong>}
                   {result.answer}
                 </div>
                 {result.citations.length > 0 && (
@@ -113,14 +244,17 @@ export const KnowledgePage: React.FC = () => {
                         <button
                           type="button"
                           className="knowledge-source-link"
-                          onClick={() => void downloadSource(
-                            citation.document_id,
-                            citation.version_id,
-                            citation.document_title,
-                          )}
+                          aria-label={`Open cited source ${citation.document_title}`}
+                          onClick={() => {
+                            setSelectedDocumentId(citation.document_id);
+                            setSelectedVersionId(citation.version_id);
+                            setPreview(null);
+                            setActiveMobilePanel('preview');
+                          }}
                         >
-                          Open source document
+                          Open cited document
                         </button>
+                        <button type="button" className="knowledge-source-link" onClick={() => void downloadSource(citation.document_id, citation.version_id, citation.document_title)}>Download cited source</button>
                       </details>
                     ))}
                   </div>
@@ -156,38 +290,6 @@ export const KnowledgePage: React.FC = () => {
           </p>
         </section>
 
-        <aside className="knowledge-library-panel" aria-label="Published workspace documents">
-          <div className="knowledge-panel-heading">
-            <div className="knowledge-panel-icon"><FileText size={18} /></div>
-            <div>
-              <h2>Published library</h2>
-              <p>{library.length} current {library.length === 1 ? 'document' : 'documents'}</p>
-            </div>
-          </div>
-          {error && <p className="knowledge-error" role="alert">{error}</p>}
-          {isLoadingLibrary ? (
-            <p className="knowledge-library-empty">Loading the published library…</p>
-          ) : library.length === 0 ? (
-            <p className="knowledge-library-empty">No workspace references have been published yet.</p>
-          ) : (
-            <ul className="knowledge-document-list">
-              {library.map((document) => (
-                <li key={document.id}>
-                  <span className="knowledge-document-category">{document.category}</span>
-                  <strong>{document.title}</strong>
-                  {document.description && <p>{document.description}</p>}
-                  <small>
-                    Version {document.version_number}
-                    {document.page_count > 0 ? ` · ${document.page_count} pages` : ''}
-                  </small>
-                </li>
-              ))}
-            </ul>
-          )}
-          <p className="knowledge-library-footnote">
-            Only current, published documents are searchable. Archived or superseded versions are excluded.
-          </p>
-        </aside>
       </div>
     </section>
   );

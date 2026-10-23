@@ -11,6 +11,7 @@ import {
   User,
 } from 'lucide-react';
 import { api } from '../lib/api';
+import { Link } from 'react-router-dom';
 import './AssistantPage.css';
 
 interface Message {
@@ -80,23 +81,26 @@ export const AssistantPage: React.FC = () => {
           <div className="assistant-brand-icon"><Sparkles size={18} /></div>
           <div>
             <h1>Study companion</h1>
-            <span>Grounded in your academic workspace</span>
+            <span>Study planning from your task and deadline context</span>
           </div>
         </div>
-        <button
-          type="button"
-          className="assistant-new-chat"
-          onClick={startNewChat}
-          disabled={isLoading}
-          title="Start a new conversation"
-        >
-          <Plus size={17} />
-          <span>New chat</span>
-        </button>
+        <div className="assistant-topbar-actions">
+          <Link to="/app/knowledge" className="assistant-knowledge-link"><BookOpen size={15} /><span>Knowledge library</span></Link>
+          <button
+            type="button"
+            className="assistant-new-chat"
+            onClick={startNewChat}
+            disabled={isLoading}
+            title="Start a new conversation"
+          >
+            <Plus size={17} />
+            <span>New chat</span>
+          </button>
+        </div>
       </header>
 
       <div className={`assistant-conversation${messages.length === 0 ? ' is-welcome' : ''}`}>
-        <div className="assistant-message-list">
+        <div className="assistant-message-list" role="log" aria-live="polite" aria-label="Assistant conversation">
           {messages.length === 0 ? (
             <div className="assistant-welcome">
               <div className="assistant-welcome-mark"><Sparkles size={28} /></div>
@@ -196,7 +200,7 @@ export const AssistantPage: React.FC = () => {
           <span>Enter to send · Shift + Enter for a new line</span>
         </div>
         <p className="assistant-privacy-note">
-          If AI_PROVIDER=groq, your message and relevant task/deadline details are sent to Groq.
+          This conversation does not return document citations. Use the Knowledge library for answers grounded in published sources.
         </p>
       </div>
     </section>

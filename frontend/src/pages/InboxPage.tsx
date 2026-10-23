@@ -139,28 +139,22 @@ export const InboxPage: React.FC = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+    <div className="inbox-page productivity-page">
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+      <div className="page-heading">
         <div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em' }}>
+          <h1 className="page-title">
             Academic Inbox
           </h1>
-          <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+          <p className="page-description">
             Read-only Gmail integration with assignment and examination suggestions. If AI_PROVIDER=groq, the selected email's subject, sender, and snippet are sent to Groq for extraction.
           </p>
         </div>
 
         {status?.is_connected ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div className="inbox-connection-actions">
             <span
-              className="badge"
-              style={{
-                backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                color: '#34d399',
-                border: '1px solid rgba(16, 185, 129, 0.3)',
-                padding: '0.4rem 0.75rem',
-              }}
+              className="badge inbox-connected-badge"
             >
               <ShieldCheck size={14} /> Connected: {status.email_address}
             </span>
@@ -177,22 +171,14 @@ export const InboxPage: React.FC = () => {
 
       {/* Security & Scope Notice Banner */}
       <div
-        className="card"
-        style={{
-          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(6, 182, 212, 0.05) 100%)',
-          border: '1px solid rgba(99, 102, 241, 0.25)',
-          padding: '1rem 1.25rem',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.875rem',
-        }}
+        className="card inbox-security-notice"
       >
         <Lock size={20} color="var(--accent-primary)" className="shrink-0" />
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: '0.875rem', fontWeight: 700, color: '#ffffff' }}>
+        <div className="inbox-security-copy">
+          <div className="inbox-security-title">
             Least-Privilege Gmail Security Controls
           </div>
-          <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+          <div className="inbox-security-description">
             StudentOS requests strictly <strong>read-only access</strong> (<code>gmail.readonly</code>). We never request
             permission to send, modify, or delete your emails. Extracted action items require your explicit confirmation before saving.
           </div>
@@ -212,18 +198,12 @@ export const InboxPage: React.FC = () => {
           }
         />
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div className="inbox-content">
           {/* Search Bar */}
           <div
-            className="card"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '0.75rem 1rem',
-            }}
+            className="card inbox-toolbar"
           >
-            <div style={{ position: 'relative', width: '340px' }}>
+            <div className="inbox-search-field">
               <input
                 type="text"
                 className="input"
@@ -235,6 +215,7 @@ export const InboxPage: React.FC = () => {
                 }}
                 onKeyDown={(e) => e.key === 'Enter' && fetchInbox()}
                 style={{ paddingLeft: '2.25rem' }}
+                aria-label="Search emails"
               />
               <Search
                 size={16}
@@ -258,25 +239,18 @@ export const InboxPage: React.FC = () => {
               description="No relevant messages matched your search."
             />
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div className="inbox-message-list">
               {messages.map((msg) => (
                 <div
                   key={msg.id}
-                  className="card card-hover"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '1rem 1.25rem',
-                    gap: '1rem',
-                  }}
+                  className="card card-hover inbox-message-row"
                 >
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.25rem' }}>
-                      <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--accent-secondary)' }}>
+                  <div className="inbox-message-content">
+                    <div className="inbox-message-meta">
+                      <span className="inbox-sender">
                         {msg.sender}
                       </span>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
+                      <span className="inbox-message-time">
                         {new Date(msg.internal_date).toLocaleDateString([], {
                           month: 'short',
                           day: 'numeric',
@@ -286,19 +260,11 @@ export const InboxPage: React.FC = () => {
                       </span>
                     </div>
 
-                    <div style={{ fontSize: '0.9375rem', fontWeight: 600, color: '#ffffff', marginBottom: '0.25rem' }}>
+                    <div className="inbox-message-subject">
                       {msg.subject}
                     </div>
 
-                    <div
-                      style={{
-                        fontSize: '0.8125rem',
-                        color: 'var(--text-muted)',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
+                    <div className="inbox-message-snippet">
                       {msg.snippet}
                     </div>
                   </div>
@@ -327,22 +293,17 @@ export const InboxPage: React.FC = () => {
         description="Verify extracted tasks and deadlines before adding to your schedule."
         maxWidth="max-w-2xl"
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        <div className="proposal-review">
           {/* Source Email Banner */}
           {extractingEmail && (
             <div
-              style={{
-                padding: '0.75rem 1rem',
-                borderRadius: 'var(--radius-md)',
-                backgroundColor: 'var(--bg-input)',
-                border: '1px solid var(--border-card)',
-              }}
+              className="proposal-source"
             >
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', fontWeight: 600 }}>SOURCE EMAIL</div>
-              <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#ffffff' }}>
+              <div className="proposal-source-label">SOURCE EMAIL</div>
+              <div className="proposal-source-subject">
                 {extractingEmail.subject}
               </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+              <div className="proposal-source-sender">
                 From: {extractingEmail.sender}
               </div>
             </div>
@@ -350,21 +311,14 @@ export const InboxPage: React.FC = () => {
 
           {reviewMessage && (
             <div
-              style={{
-                padding: '0.625rem 0.875rem',
-                borderRadius: 'var(--radius-md)',
-                backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                border: '1px solid rgba(99, 102, 241, 0.3)',
-                color: '#ffffff',
-                fontSize: '0.8125rem',
-              }}
+              className="proposal-review-message"
             >
               {reviewMessage}
             </div>
           )}
 
           {isExtracting ? (
-            <div style={{ padding: '2rem', textAlign: 'center' }}>
+            <div className="proposal-loading">
               <LoadingSkeleton rows={3} height="45px" />
               <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginTop: '1rem' }}>
                 Analyzing email with prompt-injection defense and extracting structured proposals...
@@ -377,7 +331,7 @@ export const InboxPage: React.FC = () => {
               description="No explicit assignments, deadlines, or examinations were identified in this email."
             />
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+            <div className="proposal-list" aria-label="Email extraction proposals">
               {extractedCandidates.map((candidate) => {
                 const isApproved = candidate.validation_status === 'approved';
                 const isRejected = candidate.validation_status === 'rejected';
@@ -385,49 +339,35 @@ export const InboxPage: React.FC = () => {
                 return (
                   <div
                     key={candidate.id}
-                    style={{
-                      padding: '1rem',
-                      borderRadius: 'var(--radius-md)',
-                      backgroundColor: 'var(--bg-input)',
-                      border: '1px solid',
-                      borderColor: isApproved
-                        ? 'var(--accent-success)'
-                        : isRejected
-                        ? 'var(--accent-danger)'
-                        : 'var(--border-card)',
-                    }}
+                    className={`proposal-card ${isApproved ? 'is-approved' : isRejected ? 'is-rejected' : 'is-pending'}`}
                   >
-                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem' }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                    <div className="proposal-card-layout">
+                      <div className="proposal-card-content">
+                        <div className="proposal-card-meta">
                           <span
-                            className="badge"
-                            style={{
-                              backgroundColor: candidate.candidate_type === 'task' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(6, 182, 212, 0.15)',
-                              color: candidate.candidate_type === 'task' ? 'var(--accent-primary)' : 'var(--accent-secondary)',
-                            }}
+                            className={`badge ${candidate.candidate_type === 'task' ? 'proposal-type-task' : 'proposal-type-deadline'}`}
                           >
                             PROPOSED {candidate.candidate_type.toUpperCase()}
                           </span>
-                          <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
+                          <span className="proposal-confidence">
                             Confidence: {Math.round(candidate.confidence_score * 100)}%
                           </span>
                         </div>
 
-                        <div style={{ fontSize: '0.9375rem', fontWeight: 700, color: '#ffffff' }}>
+                        <div className="proposal-title">
                           {candidate.title}
                         </div>
 
                         {candidate.suggested_due_date && (
-                          <div style={{ fontSize: '0.8125rem', color: 'var(--accent-secondary)', marginTop: '0.25rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <div className="proposal-due-date">
                             <Clock size={14} />
                             Suggested Due Date: {new Date(candidate.suggested_due_date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
                           </div>
                         )}
 
                         {candidate.validation_status === 'pending_review' && (
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginTop: '0.75rem' }}>
-                            <label style={{ display: 'grid', gap: '0.25rem', color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                          <div className="proposal-edit-fields">
+                            <label className="proposal-edit-field">
                               Title
                               <input
                                 className="input"
@@ -443,7 +383,7 @@ export const InboxPage: React.FC = () => {
                                 }))}
                               />
                             </label>
-                            <label style={{ display: 'grid', gap: '0.25rem', color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                            <label className="proposal-edit-field">
                               Due date and time
                               <input
                                 className="input"
@@ -461,12 +401,12 @@ export const InboxPage: React.FC = () => {
                               />
                             </label>
                             {candidate.candidate_type === 'deadline' && !candidate.suggested_due_date && (
-                              <span style={{ alignSelf: 'end', color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                              <span className="proposal-help-text">
                                 No date was found in the email. Add one before approving this deadline.
                               </span>
                             )}
                             {candidate.candidate_type === 'deadline' && candidate.is_ambiguous && candidate.suggested_due_date && (
-                              <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', color: 'var(--text-muted)', fontSize: '0.75rem', alignSelf: 'end' }}>
+                              <label className="proposal-confirm-date">
                                 <input
                                   type="checkbox"
                                   checked={!candidateEdits[candidate.id]?.isAmbiguous}
@@ -487,23 +427,14 @@ export const InboxPage: React.FC = () => {
 
                         {/* Quoted Evidence */}
                         <div
-                          style={{
-                            marginTop: '0.5rem',
-                            padding: '0.5rem 0.75rem',
-                            borderRadius: 'var(--radius-sm)',
-                            backgroundColor: 'rgba(0, 0, 0, 0.25)',
-                            borderLeft: '3px solid var(--accent-primary)',
-                            fontSize: '0.75rem',
-                            color: 'var(--text-muted)',
-                            fontStyle: 'italic',
-                          }}
+                          className="proposal-evidence"
                         >
                           "{candidate.supporting_evidence}"
                         </div>
                       </div>
 
                       {/* Approval Controls */}
-                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <div className="proposal-actions">
                         {candidate.validation_status === 'pending_review' ? (
                           <>
                             <Button
@@ -525,11 +456,7 @@ export const InboxPage: React.FC = () => {
                           </>
                         ) : (
                           <span
-                            className="badge"
-                            style={{
-                              backgroundColor: isApproved ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                              color: isApproved ? '#34d399' : '#f87171',
-                            }}
+                            className={`badge ${isApproved ? 'proposal-status-approved' : 'proposal-status-rejected'}`}
                           >
                             {candidate.validation_status.toUpperCase()}
                           </span>
@@ -542,7 +469,7 @@ export const InboxPage: React.FC = () => {
             </div>
           )}
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
+          <div className="proposal-close-action">
             <Button variant="outline" onClick={() => setIsModalOpen(false)}>
               Close
             </Button>

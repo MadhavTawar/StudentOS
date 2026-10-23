@@ -56,6 +56,7 @@ export const SettingsPage: React.FC = () => {
         ai_features_enabled: aiFeatures,
         reminder_lead_minutes: leadTime,
       });
+      document.documentElement.dataset.theme = theme === 'dark' ? 'dark' : 'light';
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err: any) {
@@ -81,13 +82,13 @@ export const SettingsPage: React.FC = () => {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+    <div className="account-page settings-page">
       {/* Header */}
       <div>
-        <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em' }}>
+        <h1 className="page-title">
           Settings & Privacy Controls
         </h1>
-        <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+        <p className="page-description">
           Manage your account preferences and understand how your workspace data is handled.
         </p>
       </div>
@@ -153,6 +154,23 @@ export const SettingsPage: React.FC = () => {
               <option value={720}>12 hours before</option>
               <option value={1440}>24 hours (1 day before)</option>
               <option value={2880}>48 hours (2 days before)</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="label" htmlFor="themeSelect">Appearance</label>
+            <select
+              id="themeSelect"
+              className="input"
+              value={theme === 'dark' ? 'dark' : 'light'}
+              onChange={(event) => {
+                const nextTheme = event.target.value;
+                setTheme(nextTheme);
+                document.documentElement.dataset.theme = nextTheme;
+              }}
+            >
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
             </select>
           </div>
         </div>

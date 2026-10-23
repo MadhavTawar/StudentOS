@@ -11,7 +11,9 @@ import {
   Clock,
   CheckCircle2,
   CalendarDays,
-  ArrowRight
+  ArrowRight,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { useAuth } from '../context/useAuth';
 import { api } from '../lib/api';
@@ -25,6 +27,8 @@ import { Modal } from '../components/common/Modal';
 export const DashboardPage: React.FC = () => {
   const { user } = useAuth();
   const [currentDate] = useState(() => new Date());
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState(() => new Date());
   const [data, setData] = useState<DashboardOverview | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -96,7 +100,7 @@ export const DashboardPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      <div className="dashboard-overview dashboard-loading-state">
         <div style={{ height: '40px', width: '300px' }} className="animate-pulse-glow" />
         <LoadingSkeleton rows={4} height="90px" />
       </div>
@@ -118,16 +122,28 @@ export const DashboardPage: React.FC = () => {
     );
   }
 
+  const calendarCells = Array.from({ length: 42 }, (_, index) =>
+    new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1 - calendarMonth.getDay() + index),
+  );
+  const dateKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  const markedDates = new Set([
+    ...data.pending_tasks.flatMap((task) => task.due_date ? [dateKey(new Date(task.due_date))] : []),
+    ...data.upcoming_deadlines.map((deadline) => dateKey(new Date(deadline.due_date))),
+  ]);
+  const selectedDateKey = dateKey(selectedCalendarDate);
+  const selectedDayTasks = data.pending_tasks.filter((task) => task.due_date && dateKey(new Date(task.due_date)) === selectedDateKey);
+  const selectedDayDeadlines = data.upcoming_deadlines.filter((deadline) => dateKey(new Date(deadline.due_date)) === selectedDateKey);
+
   return (
-    <div className="dashboard-overview" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+    <div className="dashboard-overview">
       {/* Greeting Header */}
-      <div className="dashboard-masthead" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+      <div className="dashboard-masthead">
         <div className="dashboard-welcome">
           <div className="dashboard-kicker"><span /> YOUR STUDY LIFE, IN ONE PLACE</div>
-          <h1 className="dashboard-title" style={{ fontSize: '1.875rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.03em' }}>
+          <h1 className="dashboard-title page-title">
             {getGreeting()}, {user?.full_name?.split(' ')[0] || 'Student'}
           </h1>
-          <p className="dashboard-subtitle" style={{ fontSize: '0.9375rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+          <p className="dashboard-subtitle page-description">
             A little structure for everything you’re working toward.
           </p>
         </div>
@@ -221,7 +237,8 @@ export const DashboardPage: React.FC = () => {
       </div>
 
       {/* Main Grid: Pending Tasks & Upcoming Deadlines */}
-      <div className="card" style={{ borderLeft: '4px solid var(--accent-primary)' }}>
+      <section className="dashboard-focus-grid">
+      <div className="card dashboard-focus-timeline" style={{ borderLeft: '4px solid var(--accent-primary)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', gap: '1rem' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -255,6 +272,66 @@ export const DashboardPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      <aside className="card dashboard-calendar-panel" aria-label="Calendar and selected-day tasks">
+        <div className="dashboard-calendar-heading">
+          <div>
+            <span className="dashboard-calendar-kicker">SCHEDULE</span>
+            <h2>{calendarMonth.toLocaleDateString([], { month: 'long', year: 'numeric' })}</h2>
+          </div>
+          <div className="dashboard-calendar-controls">
+            <button type="button" aria-label="Previous month" onClick={() => {
+              const nextMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1);
+              setCalendarMonth(nextMonth);
+              if (selectedCalendarDate.getMonth() !== nextMonth.getMonth() || selectedCalendarDate.getFullYear() !== nextMonth.getFullYear()) setSelectedCalendarDate(nextMonth);
+            }}><ChevronLeft size={17} /></button>
+            <button type="button" aria-label="Next month" onClick={() => {
+              const nextMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1);
+              setCalendarMonth(nextMonth);
+              if (selectedCalendarDate.getMonth() !== nextMonth.getMonth() || selectedCalendarDate.getFullYear() !== nextMonth.getFullYear()) setSelectedCalendarDate(nextMonth);
+            }}><ChevronRight size={17} /></button>
+          </div>
+        </div>
+        <div className="dashboard-calendar-grid" role="group" aria-label="Monthly deadlines and task dates">
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => <span className="dashboard-calendar-weekday" aria-hidden="true" key={day}>{day}</span>)}
+          {calendarCells.map((day) => {
+            const key = dateKey(day);
+            const isCurrentMonth = day.getMonth() === calendarMonth.getMonth();
+            const isToday = key === dateKey(currentDate);
+            return (
+              <button
+                type="button"
+                key={key}
+                className={`dashboard-calendar-day${isCurrentMonth ? '' : ' is-outside'}${isToday ? ' is-today' : ''}${key === selectedDateKey ? ' is-selected' : ''}${markedDates.has(key) ? ' has-events' : ''}`}
+                aria-label={`${day.toLocaleDateString([], { month: 'long', day: 'numeric', year: 'numeric' })}${markedDates.has(key) ? ', has scheduled work' : ''}`}
+                aria-pressed={key === selectedDateKey}
+                onClick={() => {
+                  setSelectedCalendarDate(day);
+                  if (!isCurrentMonth) setCalendarMonth(new Date(day.getFullYear(), day.getMonth(), 1));
+                }}
+              >
+                {day.getDate()}
+                {markedDates.has(key) && <span className="dashboard-calendar-dot" aria-hidden="true" />}
+              </button>
+            );
+          })}
+        </div>
+        <div className="dashboard-calendar-selected">
+          <div className="dashboard-calendar-selected-heading">
+            <strong>{selectedCalendarDate.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })}</strong>
+            <Link to="/app/planner?view=deadlines">Planner <ArrowRight size={13} /></Link>
+          </div>
+          {selectedDayTasks.length + selectedDayDeadlines.length === 0 ? (
+            <p>No tasks or deadlines in the current overview for this date.</p>
+          ) : (
+            <ul>
+              {selectedDayTasks.slice(0, 3).map((task) => <li key={`task-${task.id}`}><span className="dashboard-calendar-event-mark task-mark" />{task.title}</li>)}
+              {selectedDayDeadlines.slice(0, 3).map((deadline) => <li key={`deadline-${deadline.id}`}><span className="dashboard-calendar-event-mark deadline-mark" />{deadline.title}</li>)}
+            </ul>
+          )}
+        </div>
+      </aside>
+      </section>
 
       {/* Main Grid: Pending Tasks & Upcoming Deadlines */}
       <div className="dashboard-columns" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: '1.5rem' }}>
@@ -296,6 +373,7 @@ export const DashboardPage: React.FC = () => {
                     <input
                       type="checkbox"
                       checked={task.status === 'Completed'}
+                      aria-label={`Complete ${task.title}`}
                       onChange={() => handleToggleTask(task.id)}
                       style={{ width: '18px', height: '18px', accentColor: 'var(--accent-primary)', cursor: 'pointer' }}
                     />

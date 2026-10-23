@@ -82,14 +82,14 @@ export const RemindersPage: React.FC = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+    <div className="productivity-page reminders-page">
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+      <div className="page-heading">
         <div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em' }}>
+          <h1 className="page-title">
             Reminders & Alerts
           </h1>
-          <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+          <p className="page-description">
             Manage persistent in-app study reminders and automated deadline notifications.
           </p>
         </div>
@@ -117,19 +117,11 @@ export const RemindersPage: React.FC = () => {
           action={<Button variant="primary" onClick={() => setIsModalOpen(true)}>Create First Reminder</Button>}
         />
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        <div className="planner-list">
           {reminders.map((reminder) => (
             <div
               key={reminder.id}
-              className="card card-hover"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '1rem 1.25rem',
-                gap: '1rem',
-                opacity: reminder.status === 'Dismissed' ? 0.6 : 1,
-              }}
+              className={`card card-hover reminder-row ${reminder.status === 'Dismissed' ? 'is-dismissed' : ''}`}
             >
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
