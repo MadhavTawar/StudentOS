@@ -1,17 +1,16 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  CheckSquare,
   Calendar,
-  AlertCircle,
-  Plus,
-  Mail,
-  Bot,
-  RefreshCw,
   Clock,
+  Plus,
+  RefreshCw,
+  ArrowRight,
+  ChevronLeft,
+  ChevronRight,
   CheckCircle2,
-  CalendarDays,
-  ArrowRight
+  CheckSquare,
+  AlertCircle,
 } from 'lucide-react';
 import { useAuth } from '../context/useAuth';
 import { api } from '../lib/api';
@@ -25,11 +24,12 @@ import { Modal } from '../components/common/Modal';
 export const DashboardPage: React.FC = () => {
   const { user } = useAuth();
   const [currentDate] = useState(() => new Date());
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState(() => new Date());
   const [data, setData] = useState<DashboardOverview | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Quick Task Modal
   const [isQuickTaskOpen, setIsQuickTaskOpen] = useState(false);
   const [taskTitle, setTaskTitle] = useState('');
   const [taskCategory, setTaskCategory] = useState('Assignment');
@@ -57,7 +57,6 @@ export const DashboardPage: React.FC = () => {
   const handleToggleTask = async (taskId: string) => {
     try {
       await api.toggleTask(taskId);
-      // Refresh overview
       fetchDashboard();
     } catch (err) {
       console.error(err);
@@ -94,16 +93,22 @@ export const DashboardPage: React.FC = () => {
     return 'Good evening';
   };
 
-  if (isLoading) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-        <div style={{ height: '40px', width: '300px' }} className="animate-pulse-glow" />
-        <LoadingSkeleton rows={4} height="90px" />
-      </div>
-    );
-  }
+  const dateKey = (date: Date) =>
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
-  if (error || !data) {
+  const calendarCells = Array.from({ length: 42 }, (_, index) =>
+    new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1 - calendarMonth.getDay() + index),
+  );
+
+  if (!data) {
+    if (isLoading) {
+      return (
+        <div className="dashboard-page dashboard-loading">
+          <div className="dashboard-loading-row animate-pulse-glow" />
+          <LoadingSkeleton rows={4} height="90px" />
+        </div>
+      );
+    }
     return (
       <EmptyState
         icon={<AlertCircle size={32} />}
@@ -118,361 +123,398 @@ export const DashboardPage: React.FC = () => {
     );
   }
 
-  return (
-    <div className="dashboard-overview" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-      {/* Greeting Header */}
-      <div className="dashboard-masthead" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
-        <div className="dashboard-welcome">
-          <div className="dashboard-kicker"><span /> YOUR STUDY LIFE, IN ONE PLACE</div>
-          <h1 className="dashboard-title" style={{ fontSize: '1.875rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.03em' }}>
-            {getGreeting()}, {user?.full_name?.split(' ')[0] || 'Student'}
-          </h1>
-          <p className="dashboard-subtitle" style={{ fontSize: '0.9375rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-            A little structure for everything you’re working toward.
-          </p>
-        </div>
+  const activeTasksCount = data.stats.pending + data.stats.in_progress;
+  const upcomingCount = data.upcoming_deadlines.length;
+  const overdueCount = data.stats.overdue;
+  const completedCount = data.stats.completed;
 
-        <div className="dashboard-masthead-actions" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+  const markedDates = new Set([
+    ...data.pending_tasks.flatMap((task) => (task.due_date ? [dateKey(new Date(task.due_date))] : [])),
+    ...data.upcoming_deadlines.map((deadline) => dateKey(new Date(deadline.due_date))),
+  ]);
+  const selectedDateKey = dateKey(selectedCalendarDate);
+  const selectedDayTasks = data.pending_tasks.filter((task) => task.due_date && dateKey(new Date(task.due_date)) === selectedDateKey);
+  const selectedDayDeadlines = data.upcoming_deadlines.filter((deadline) => dateKey(new Date(deadline.due_date)) === selectedDateKey);
+
+  const hourGroups = new Map<string, { label: string; tasks: any[] }>();
+  const anytimeTasks: any[] = [];
+  data.pending_tasks.forEach((task) => {
+    if (task.due_date) {
+      const d = new Date(task.due_date);
+      const key = String(d.getHours()).padStart(2, '0');
+      const label = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      if (!hourGroups.has(key)) hourGroups.set(key, { label, tasks: [] });
+      hourGroups.get(key)!.tasks.push(task);
+    } else {
+      anytimeTasks.push(task);
+    }
+  });
+
+  const statTiles = [
+    {
+      label: 'Active tasks',
+      value: activeTasksCount,
+      caption: `${data.stats.pending} pending · ${data.stats.in_progress} in progress`,
+      icon: <CheckSquare size={20} />,
+      accent: 'var(--accent-primary)',
+    },
+    {
+      label: 'Upcoming deadlines',
+      value: upcomingCount,
+      caption: 'Next 7 academic days',
+      icon: <Calendar size={20} />,
+      accent: 'var(--accent-secondary)',
+    },
+    {
+      label: 'Overdue tasks',
+      value: overdueCount,
+      caption: overdueCount > 0 ? 'Requires immediate focus' : 'All caught up',
+      icon: <AlertCircle size={20} />,
+      accent: 'var(--accent-danger)',
+    },
+    {
+      label: 'Completed tasks',
+      value: completedCount,
+      caption: `${data.stats.pending + data.stats.in_progress} remaining`,
+      icon: <CheckCircle2 size={20} />,
+      accent: 'var(--accent-success)',
+    },
+  ];
+
+  return (
+    <div className="dashboard-page">
+      {/* Greeting header */}
+      <header className="dashboard-masthead">
+        <div className="dashboard-welcome">
+          <div className="dashboard-kicker">YOUR STUDY LIFE, IN ONE PLACE</div>
+          <h1 className="dashboard-title">{getGreeting()}, {user?.full_name?.split(' ')[0] || 'Student'}</h1>
+          <p className="dashboard-subtitle">Every task you complete is a step closer to your goals.</p>
+        </div>
+        <div className="dashboard-actions">
           <div className="dashboard-date-stamp">
-            <CalendarDays size={15} />
+            <Calendar size={15} />
             <span>{currentDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
           </div>
           <Button variant="primary" onClick={() => setIsQuickTaskOpen(true)} icon={<Plus size={16} />}>
-            Quick Task
+            Add task
           </Button>
         </div>
+      </header>
+
+      {/* Stats cards */}
+      <div className="dashboard-stats">
+        {statTiles.map((tile) => (
+          <div key={tile.label} className="dashboard-stat" data-accent={tile.accent}>
+            <div className="dashboard-stat-body">
+              <div className="dashboard-stat-label">{tile.label}</div>
+              <div className="dashboard-stat-value">{tile.value}</div>
+              <div className="dashboard-stat-caption">{tile.caption}</div>
+            </div>
+            <div className="dashboard-stat-icon" style={{ color: tile.accent }}>
+              {tile.icon}
+            </div>
+          </div>
+        ))}
       </div>
 
-      {/* Stats Cards Grid */}
-      <div className="dashboard-stat-grid"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-          gap: '1rem',
-        }}
-      >
-        <div className="card dashboard-stat" style={{ borderLeft: '4px solid var(--accent-primary)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', fontWeight: 600 }}>Active Tasks</div>
-              <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#ffffff', marginTop: '0.25rem' }}>
-                {data.stats.pending + data.stats.in_progress}
+      {/* Main grid */}
+      <div className="dashboard-grid">
+        {/* Left column */}
+        <div className="dashboard-left">
+          {/* Today timeline */}
+          <section className="card dashboard-card dashboard-today">
+            <div className="dashboard-card-header">
+              <div className="dashboard-card-title-row">
+                <div className="dashboard-card-icon"><Clock size={18} /></div>
+                <h2 className="dashboard-card-title">Today</h2>
               </div>
+              <Link to="/app/planner" className="dashboard-card-link">Open planner <ArrowRight size={13} /></Link>
             </div>
-            <div style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', backgroundColor: 'rgba(99, 102, 241, 0.1)', color: 'var(--accent-primary)' }}>
-              <CheckSquare size={20} />
-            </div>
-          </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '0.75rem' }}>
-            {data.stats.completed} completed overall
-          </div>
-        </div>
-
-        <div className="card dashboard-stat" style={{ borderLeft: '4px solid var(--accent-secondary)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', fontWeight: 600 }}>Upcoming Deadlines</div>
-              <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#ffffff', marginTop: '0.25rem' }}>
-                {data.upcoming_deadlines.length}
-              </div>
-            </div>
-            <div style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', backgroundColor: 'rgba(6, 182, 212, 0.1)', color: 'var(--accent-secondary)' }}>
-              <Calendar size={20} />
-            </div>
-          </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '0.75rem' }}>
-            Next 7 academic days
-          </div>
-        </div>
-
-        <div className="card dashboard-stat" style={{ borderLeft: '4px solid var(--accent-danger)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', fontWeight: 600 }}>Overdue Tasks</div>
-              <div style={{ fontSize: '1.75rem', fontWeight: 800, color: data.stats.overdue > 0 ? '#f87171' : '#ffffff', marginTop: '0.25rem' }}>
-                {data.stats.overdue}
-              </div>
-            </div>
-            <div style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: 'var(--accent-danger)' }}>
-              <AlertCircle size={20} />
-            </div>
-          </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '0.75rem' }}>
-            Requires immediate focus
-          </div>
-        </div>
-
-        <div className="card dashboard-stat" style={{ borderLeft: '4px solid var(--accent-purple)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', fontWeight: 600 }}>Integration Status</div>
-              <div style={{ fontSize: '1.125rem', fontWeight: 700, color: '#ffffff', marginTop: '0.5rem' }}>
-                {data.gmail_connected ? 'Gmail Connected' : 'Gmail Disconnected'}
-              </div>
-            </div>
-            <div style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', backgroundColor: 'rgba(139, 92, 246, 0.1)', color: 'var(--accent-purple)' }}>
-              <Mail size={20} />
-            </div>
-          </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '0.5rem' }}>
-            {data.gmail_connected ? data.gmail_email : 'Click to connect inbox'}
-          </div>
-        </div>
-      </div>
-
-      {/* Main Grid: Pending Tasks & Upcoming Deadlines */}
-      <div className="card" style={{ borderLeft: '4px solid var(--accent-primary)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', gap: '1rem' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <ArrowRight size={18} color="var(--accent-primary)" />
-              <h2 style={{ fontSize: '1.125rem', fontWeight: 700, color: '#ffffff', margin: 0 }}>What deserves attention next</h2>
-            </div>
-            <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', margin: '0.35rem 0 0 1.65rem' }}>
-              Based on due dates and task priority. It does not assume how much free time you have.
-            </p>
-          </div>
-          <Link to="/app/planner" style={{ fontSize: '0.8125rem', color: 'var(--accent-primary)', textDecoration: 'none', fontWeight: 600 }}>Open planner →</Link>
-        </div>
-        {data.daily_priorities.length === 0 ? (
-          <EmptyState
-            icon={<CheckCircle2 size={24} />}
-            title="Your plan is clear"
-            description="Add a task or deadline when you know what you want to work on next."
-            action={<Button variant="outline" onClick={() => setIsQuickTaskOpen(true)} icon={<Plus size={15} />}>Add a task</Button>}
-          />
-        ) : (
-          <div style={{ display: 'grid', gap: '0.5rem' }}>
-            {data.daily_priorities.map(({ task, reason }) => (
-              <div key={task.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', padding: '0.7rem 0.8rem', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-card)' }}>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ color: 'var(--text-main)', fontSize: '0.875rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</div>
-                  <div style={{ color: 'var(--text-dim)', fontSize: '0.75rem', marginTop: '0.2rem' }}>{reason}{task.due_date ? ` · ${new Date(task.due_date).toLocaleDateString([], { month: 'short', day: 'numeric' })}` : ''}</div>
+            <div className="dashboard-timeline">
+              {Array.from(hourGroups.entries()).map(([key, { label, tasks }]) => (
+                <div key={key} className="dashboard-timeline-slot">
+                  <span className="dashboard-timeline-time">{label}</span>
+                  <div className="dashboard-timeline-items">
+                    {tasks.map((task) => (
+                      <div key={task.id} className="dashboard-timeline-item">
+                        <input
+                          type="checkbox"
+                          checked={task.status === 'Completed'}
+                          aria-label={`Complete ${task.title}`}
+                          onChange={() => handleToggleTask(task.id)}
+                          className="dashboard-checkbox"
+                        />
+                        <div className="dashboard-timeline-item-body">
+                          <div className="dashboard-timeline-item-title">{task.title}</div>
+                          {task.due_date && (
+                            <div className="dashboard-timeline-item-meta">
+                              {new Date(task.due_date).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                            </div>
+                          )}
+                        </div>
+                        <PriorityBadge priority={task.priority} />
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <PriorityBadge priority={task.priority} />
+              ))}
+              {anytimeTasks.length > 0 && (
+                <div className="dashboard-timeline-slot">
+                  <span className="dashboard-timeline-time">Anytime</span>
+                  <div className="dashboard-timeline-items">
+                    {anytimeTasks.map((task) => (
+                      <div key={task.id} className="dashboard-timeline-item">
+                        <input
+                          type="checkbox"
+                          checked={task.status === 'Completed'}
+                          aria-label={`Complete ${task.title}`}
+                          onChange={() => handleToggleTask(task.id)}
+                          className="dashboard-checkbox"
+                        />
+                        <div className="dashboard-timeline-item-body">
+                          <div className="dashboard-timeline-item-title">{task.title}</div>
+                        </div>
+                        <PriorityBadge priority={task.priority} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {hourGroups.size === 0 && anytimeTasks.length === 0 && (
+                <div className="dashboard-timeline-empty">No tasks scheduled for today.</div>
+              )}
+            </div>
+          </section>
+
+          {/* Tasks table */}
+          <section className="card dashboard-card dashboard-tasks">
+            <div className="dashboard-card-header">
+              <div className="dashboard-card-title-row">
+                <div className="dashboard-card-icon"><CheckSquare size={18} /></div>
+                <h2 className="dashboard-card-title">Active tasks</h2>
               </div>
-            ))}
-          </div>
-        )}
+              <Link to="/app/tasks" className="dashboard-card-link">View all <ArrowRight size={13} /></Link>
+            </div>
+            {data.pending_tasks.length === 0 ? (
+              <EmptyState
+                icon={<CheckCircle2 size={24} />}
+                title="No active tasks"
+                description="You're all caught up! Use Add task to schedule new study tasks."
+              />
+            ) : (
+              <div className="dashboard-task-table">
+                {data.pending_tasks.map((task) => (
+                  <div key={task.id} className="dashboard-task-row">
+                    <div className="dashboard-task-main">
+                      <input
+                        type="checkbox"
+                        checked={task.status === 'Completed'}
+                        aria-label={`Complete ${task.title}`}
+                        onChange={() => handleToggleTask(task.id)}
+                        className="dashboard-checkbox"
+                      />
+                      <div className="dashboard-task-body">
+                        <div className="dashboard-task-title">{task.title}</div>
+                        {task.due_date && (
+                          <div className="dashboard-task-meta">
+                            <Clock size={12} className="dashboard-task-meta-icon" />
+                            <span>{new Date(task.due_date).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="dashboard-task-tags">
+                      <StatusBadge status={task.status} />
+                      <PriorityBadge priority={task.priority} />
+                    </div>
+                    <div className="dashboard-task-chevr">
+                      <Link to={`/app/tasks/${task.id}`} className="dashboard-task-link">
+                        <ArrowRight size={13} />
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
+
+        {/* Right rail */}
+        <div className="dashboard-right">
+          <section className="card dashboard-card dashboard-calendar">
+            <div className="dashboard-card-header">
+              <div className="dashboard-card-title-row">
+                <div className="dashboard-card-icon"><Calendar size={18} /></div>
+                <h2 className="dashboard-card-title">Schedule</h2>
+              </div>
+              <div className="dashboard-calendar-controls">
+                <button type="button" aria-label="Previous month" onClick={() => {
+                  const next = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1);
+                  setCalendarMonth(next);
+                  if (selectedCalendarDate.getMonth() !== next.getMonth() || selectedCalendarDate.getFullYear() !== next.getFullYear()) setSelectedCalendarDate(next);
+                }}><ChevronLeft size={17} /></button>
+                <button type="button" aria-label="Next month" onClick={() => {
+                  const next = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1);
+                  setCalendarMonth(next);
+                  if (selectedCalendarDate.getMonth() !== next.getMonth() || selectedCalendarDate.getFullYear() !== next.getFullYear()) setSelectedCalendarDate(next);
+                }}><ChevronRight size={17} /></button>
+              </div>
+            </div>
+            <div className="dashboard-calendar-heading">
+              <div className="dashboard-calendar-month">{calendarMonth.toLocaleDateString([], { month: 'long', year: 'numeric' })}</div>
+            </div>
+            <div className="dashboard-calendar-grid">
+              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+                <span className="dashboard-calendar-weekday" key={day} aria-hidden="true">{day}</span>
+              ))}
+              {calendarCells.map((day) => {
+                const key = dateKey(day);
+                const isCurrentMonth = day.getMonth() === calendarMonth.getMonth();
+                const isToday = key === dateKey(currentDate);
+                return (
+                  <button
+                    type="button"
+                    key={key}
+                    className={`dashboard-calendar-day${isCurrentMonth ? '' : ' is-outside'}${isToday ? ' is-today' : ''}${key === selectedDateKey ? ' is-selected' : ''}${markedDates.has(key) ? ' has-events' : ''}`}
+                    aria-label={`${day.toLocaleDateString([], { month: 'long', day: 'numeric', year: 'numeric' })}${markedDates.has(key) ? ', has scheduled work' : ''}`}
+                    aria-pressed={key === selectedDateKey}
+                    onClick={() => {
+                      setSelectedCalendarDate(day);
+                      if (!isCurrentMonth) setCalendarMonth(new Date(day.getFullYear(), day.getMonth(), 1));
+                    }}
+                  >
+                    {day.getDate()}
+                    {markedDates.has(key) && <span className="dashboard-calendar-dot" aria-hidden="true" />}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="dashboard-calendar-selected">
+              <div className="dashboard-calendar-selected-heading">
+                <strong>{selectedCalendarDate.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })}</strong>
+                <Link to="/app/planner?view=deadlines" className="dashboard-calendar-planner-link">
+                  Planner <ArrowRight size={13} />
+                </Link>
+              </div>
+              {selectedDayTasks.length + selectedDayDeadlines.length === 0 ? (
+                <p className="dashboard-calendar-empty">No tasks or deadlines for this date.</p>
+              ) : (
+                <ul className="dashboard-calendar-list">
+                  {selectedDayTasks.slice(0, 3).map((task) => (
+                    <li key={`task-${task.id}`} className="dashboard-calendar-list-item">
+                      <span className="dashboard-calendar-event-mark task-mark" />
+                      {task.title}
+                    </li>
+                  ))}
+                  {selectedDayDeadlines.slice(0, 3).map((deadline) => (
+                    <li key={`deadline-${deadline.id}`} className="dashboard-calendar-list-item">
+                      <span className="dashboard-calendar-event-mark deadline-mark" />
+                      {deadline.title}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </section>
+
+          {/* Goals */}
+          <section className="card dashboard-card dashboard-goals">
+            <div className="dashboard-card-header">
+              <div className="dashboard-card-title-row">
+                <div className="dashboard-card-icon"><CheckSquare size={18} /></div>
+                <h2 className="dashboard-card-title">Goals</h2>
+              </div>
+            </div>
+            {data.upcoming_deadlines.length === 0 && (
+              <div className="dashboard-goals-empty">Add goals from the Goals page to track progress here.</div>
+            )}
+            <div className="dashboard-goals-list">
+              {data.upcoming_deadlines.slice(0, 3).map((goal) => (
+                <div key={goal.id} className="dashboard-goal-row">
+                  <div className="dashboard-goal-info">
+                    <div className="dashboard-goal-title">{goal.title}</div>
+                    <div className="dashboard-goal-caption">{new Date(goal.due_date).toLocaleDateString([], { month: 'short', day: 'numeric' })}</div>
+                  </div>
+                  <div className="dashboard-goal-progress">
+                    <div className="dashboard-goal-track">
+                      <div className="dashboard-goal-bar" style={{ width: '40%' }} />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
       </div>
 
-      {/* Main Grid: Pending Tasks & Upcoming Deadlines */}
-      <div className="dashboard-columns" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: '1.5rem' }}>
-        {/* Pending Tasks Section */}
-        <div className="card">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <CheckSquare size={18} color="var(--accent-primary)" />
-              <h2 style={{ fontSize: '1.125rem', fontWeight: 700, color: '#ffffff' }}>Active Tasks</h2>
+      {/* Compact attention + AI proposals strip */}
+      <div className="dashboard-attention">
+        <section className="card dashboard-card dashboard-attention-card">
+          <div className="dashboard-card-header">
+            <div className="dashboard-card-title-row">
+              <div className="dashboard-card-icon"><ArrowRight size={18} /></div>
+              <h2 className="dashboard-card-title">What deserves attention next</h2>
             </div>
-            <Link to="/app/tasks" style={{ fontSize: '0.8125rem', color: 'var(--accent-primary)', textDecoration: 'none', fontWeight: 600 }}>
-              View all &rarr;
-            </Link>
+            <Link to="/app/planner" className="dashboard-card-link">Open planner <ArrowRight size={13} /></Link>
           </div>
-
-          {data.pending_tasks.length === 0 ? (
+          {data.daily_priorities.length === 0 ? (
             <EmptyState
               icon={<CheckCircle2 size={24} />}
-              title="No active tasks"
-              description="You're all caught up! Use quick-add to schedule new study tasks."
+              title="Your plan is clear"
+              description="Add a task or deadline when you know what you want to work on next."
+              action={<Button variant="outline" onClick={() => setIsQuickTaskOpen(true)} icon={<Plus size={15} />}>Add a task</Button>}
             />
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
-              {data.pending_tasks.map((task) => (
-                <div
-                  key={task.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '0.75rem 1rem',
-                    borderRadius: 'var(--radius-md)',
-                    backgroundColor: 'var(--bg-input)',
-                    border: '1px solid var(--border-card)',
-                    transition: 'border-color 0.15s',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0 }}>
-                    <input
-                      type="checkbox"
-                      checked={task.status === 'Completed'}
-                      onChange={() => handleToggleTask(task.id)}
-                      style={{ width: '18px', height: '18px', accentColor: 'var(--accent-primary)', cursor: 'pointer' }}
-                    />
-                    <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-main)' }}>
-                        {task.title}
-                      </span>
-                      {task.due_date && (
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <Clock size={12} />
-                          {new Date(task.due_date).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                        </div>
-                      )}
-                    </div>
+            <div className="dashboard-priorities">
+              {data.daily_priorities.map(({ task, reason }) => (
+                <div key={task.id} className="dashboard-priority-item">
+                  <div className="dashboard-priority-body">
+                    <div className="dashboard-priority-title">{task.title}</div>
+                    <div className="dashboard-priority-reason">{reason}{task.due_date ? ` · ${new Date(task.due_date).toLocaleDateString([], { month: 'short', day: 'numeric' })}` : ''}</div>
                   </div>
                   <PriorityBadge priority={task.priority} />
                 </div>
               ))}
             </div>
           )}
-        </div>
+        </section>
 
-        {/* Upcoming Deadlines Section */}
-        <div className="card">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <CalendarDays size={18} color="var(--accent-secondary)" />
-              <h2 style={{ fontSize: '1.125rem', fontWeight: 700, color: '#ffffff' }}>Upcoming Deadlines</h2>
+        <section className="card dashboard-card dashboard-proposals">
+          <div className="dashboard-card-header">
+            <div className="dashboard-card-title-row">
+              <div className="dashboard-card-icon"><AlertCircle size={18} /></div>
+              <h2 className="dashboard-card-title">AI proposals waiting for approval</h2>
             </div>
-            <Link to="/app/deadlines" style={{ fontSize: '0.8125rem', color: 'var(--accent-secondary)', textDecoration: 'none', fontWeight: 600 }}>
-              View all &rarr;
-            </Link>
+            <Link to="/app/inbox" className="dashboard-card-link">Review inbox <ArrowRight size={13} /></Link>
           </div>
-
-          {data.upcoming_deadlines.length === 0 ? (
-            <EmptyState
-              icon={<Calendar size={24} />}
-              title="No upcoming deadlines"
-              description="No assignments or examinations recorded for the upcoming week."
-            />
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
-              {data.upcoming_deadlines.map((deadline) => (
-                <div
-                  key={deadline.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '0.75rem 1rem',
-                    borderRadius: 'var(--radius-md)',
-                    backgroundColor: 'var(--bg-input)',
-                    border: '1px solid var(--border-card)',
-                  }}
-                >
-                  <div>
-                    <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#ffffff' }}>{deadline.title}</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                      {new Date(deadline.due_date).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                    </div>
-                  </div>
-                  <StatusBadge status={deadline.status} />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* AI Proposals & Recent Emails Strip */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: '1.5rem' }}>
-        {/* AI Proposals Review Alert */}
-        <div className="card" style={{ background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(19, 27, 46, 1) 100%)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Bot size={18} color="var(--accent-primary)" />
-              <h2 style={{ fontSize: '1.125rem', fontWeight: 700, color: '#ffffff' }}>AI Proposals Waiting for Approval</h2>
-            </div>
-            <Link to="/app/inbox" style={{ fontSize: '0.8125rem', color: 'var(--accent-primary)', textDecoration: 'none', fontWeight: 600 }}>
-              Review inbox &rarr;
-            </Link>
-          </div>
-
           {data.ai_proposals.length === 0 ? (
-            <div style={{ fontSize: '0.8125rem', color: 'var(--text-dim)', padding: '1rem 0' }}>
-              No pending task proposals. Connect your Gmail or upload syllabi to extract deadlines automatically.
-            </div>
+            <div className="dashboard-proposals-empty">No pending task proposals. Connect Gmail or upload syllabi to extract deadlines automatically.</div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <div className="dashboard-proposal-list">
               {data.ai_proposals.map((prop) => (
-                <div
-                  key={prop.id}
-                  style={{
-                    padding: '0.75rem',
-                    borderRadius: 'var(--radius-md)',
-                    backgroundColor: 'rgba(99, 102, 241, 0.08)',
-                    border: '1px solid rgba(99, 102, 241, 0.25)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                  }}
-                >
-                  <div>
-                    <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-main)' }}>{prop.title}</div>
-                    <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>From: {prop.email_subject}</div>
+                <div key={prop.id} className="dashboard-proposal-item">
+                  <div className="dashboard-proposal-body">
+                    <div className="dashboard-proposal-title">{prop.title}</div>
+                    <div className="dashboard-proposal-source">From: {prop.email_subject}</div>
                   </div>
-                  <Link to="/app/inbox" className="btn btn-primary btn-sm">
-                    Review
-                  </Link>
+                  <Link to="/app/inbox" className="btn btn-primary btn-sm">Review</Link>
                 </div>
               ))}
             </div>
           )}
-        </div>
-
-        {/* Recent Gmail Activity */}
-        <div className="card">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Mail size={18} color="var(--text-muted)" />
-              <h2 style={{ fontSize: '1.125rem', fontWeight: 700, color: '#ffffff' }}>Recent Academic Emails</h2>
-            </div>
-            <Link to="/app/inbox" style={{ fontSize: '0.8125rem', color: 'var(--accent-primary)', textDecoration: 'none', fontWeight: 600 }}>
-              Open inbox &rarr;
-            </Link>
-          </div>
-
-          {!data.gmail_connected ? (
-            <div style={{ padding: '1.5rem', textAlign: 'center' }}>
-              <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
-                Connect Gmail with read-only permissions to automatically detect assignments and deadlines.
-              </p>
-              <Link to="/app/inbox" className="btn btn-secondary btn-sm">
-                Connect Gmail
-              </Link>
-            </div>
-          ) : data.recent_emails.length === 0 ? (
-            <div style={{ fontSize: '0.8125rem', color: 'var(--text-dim)', padding: '1rem 0' }}>
-              No messages synced yet.
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {data.recent_emails.slice(0, 3).map((email) => (
-                <div
-                  key={email.id}
-                  style={{
-                    padding: '0.625rem 0.75rem',
-                    borderRadius: 'var(--radius-md)',
-                    backgroundColor: 'var(--bg-input)',
-                    border: '1px solid var(--border-card)',
-                  }}
-                >
-                  <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {email.subject}
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {email.snippet}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        </section>
       </div>
 
       {/* Quick Add Task Modal */}
       <Modal
         isOpen={isQuickTaskOpen}
         onClose={() => setIsQuickTaskOpen(false)}
-        title="Quick-Add Academic Task"
+        title="Quick-add academic task"
         description="Add a task with priority, category, and due date."
       >
-        <form onSubmit={handleCreateQuickTask} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div>
-            <label className="label" htmlFor="quickTitle">
-              Task Title *
-            </label>
+        <form onSubmit={handleCreateQuickTask} className="dashboard-quick-form">
+          <div className="dashboard-form-field">
+            <label className="label" htmlFor="quickTitle">Task title *</label>
             <input
               id="quickTitle"
               required
@@ -482,18 +524,10 @@ export const DashboardPage: React.FC = () => {
               onChange={(e) => setTaskTitle(e.target.value)}
             />
           </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <div>
-              <label className="label" htmlFor="quickCategory">
-                Category
-              </label>
-              <select
-                id="quickCategory"
-                className="input"
-                value={taskCategory}
-                onChange={(e) => setTaskCategory(e.target.value)}
-              >
+          <div className="dashboard-form-row">
+            <div className="dashboard-form-field">
+              <label className="label" htmlFor="quickCategory">Category</label>
+              <select id="quickCategory" className="input" value={taskCategory} onChange={(e) => setTaskCategory(e.target.value)}>
                 <option value="Assignment">Assignment</option>
                 <option value="Exam Prep">Exam Prep</option>
                 <option value="Project">Project</option>
@@ -501,17 +535,9 @@ export const DashboardPage: React.FC = () => {
                 <option value="General">General</option>
               </select>
             </div>
-
-            <div>
-              <label className="label" htmlFor="quickPriority">
-                Priority
-              </label>
-              <select
-                id="quickPriority"
-                className="input"
-                value={taskPriority}
-                onChange={(e) => setTaskPriority(e.target.value as any)}
-              >
+            <div className="dashboard-form-field">
+              <label className="label" htmlFor="quickPriority">Priority</label>
+              <select id="quickPriority" className="input" value={taskPriority} onChange={(e) => setTaskPriority(e.target.value as any)}>
                 <option value="Low">Low</option>
                 <option value="Medium">Medium</option>
                 <option value="High">High</option>
@@ -519,26 +545,16 @@ export const DashboardPage: React.FC = () => {
               </select>
             </div>
           </div>
-
-          <div>
-            <label className="label" htmlFor="quickDueDate">
-              Due Date & Time (Optional)
-            </label>
-            <input
-              id="quickDueDate"
-              type="datetime-local"
-              className="input"
-              value={taskDueDate}
-              onChange={(e) => setTaskDueDate(e.target.value)}
-            />
+          <div className="dashboard-form-field">
+            <label className="label" htmlFor="quickDueDate">Due date & time (optional)</label>
+            <input id="quickDueDate" type="datetime-local" className="input" value={taskDueDate} onChange={(e) => setTaskDueDate(e.target.value)} />
           </div>
-
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem' }}>
+          <div className="dashboard-form-actions">
             <Button type="button" variant="outline" onClick={() => setIsQuickTaskOpen(false)}>
               Cancel
             </Button>
             <Button type="submit" variant="primary" isLoading={isSubmitting}>
-              Create Task
+              Create task
             </Button>
           </div>
         </form>

@@ -1,4 +1,67 @@
-# StudentOS Institute Knowledge RAG: Project Audit
+# StudentOS Project Audit and Verification
+
+## Current verification snapshot — 2026-10-23
+
+This section records checks performed on 2026-10-23 after the reference-driven UI work. The remainder preserves earlier product findings as historical evidence and is not a description of the current implementation.
+
+### Verification evidence
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| Backend test suite | **PASS** | `./run_tests.ps1` — **61 passed, 1 warning, 71.40s**. The warning is the Starlette/httpx `TestClient` deprecation notice. Test fixtures use in-memory SQLite. |
+| Frontend lint | **PASS** | `npm run lint` — exit code 0 with no warnings after correcting the two warnings found during implementation. |
+| TypeScript and production build | **PASS** | `npm run build` — `tsc -b` and Vite production build passed; 1,962 modules transformed. |
+| Development frontend and public responsive smoke | **PASS** | Vite served the app on port 5173. `/app` redirected to `/login` when its `/api/v1/auth/me` request could not reach the backend. At 390, 768, 1280, and 1440px, the login page had no horizontal overflow and exposed one accessible email field and Sign In button. |
+| Public keyboard/focus and reduced-motion smoke | **PASS** | On `/login`, keyboard traversal reached email, password, Sign In, and Create account; focus indicators were visible. Under `prefers-reduced-motion: reduce`, the page entrance animation resolved to `0.00001s`. This does not establish accessibility of authenticated pages. |
+| Authenticated browser workflows | **NOT VERIFIED** | The API at `127.0.0.1:8000` refused connections and no safe development credentials/test data were available. Planner, goals, knowledge, AI, email review, workspace permissions, and authenticated responsive behavior were not exercised in the browser. |
+| Backend development-server startup | **NOT RUN** | The backend lifespan calls `Base.metadata.create_all()` and startup migration helpers against the configured database. No isolated development database was established, so the service was not started to avoid modifying the user's configured database. See [`main.py`](../backend/app/main.py). |
+| TypeScript runtime-validation skill runner | **NOT RUN** | The session's tool search did not expose the skill's `typescript_validate_runtime` tool. Its existing plan's build/server checks were run directly; no standalone result artifact was generated. |
+| Git working tree | **PARTIAL** | The branch remains dirty with pre-existing UI changes plus this run's changes. `git diff --check` reports CRLF-related trailing whitespace in the already-modified [`Sidebar.tsx`](../frontend/src/components/layout/Sidebar.tsx); line endings were not normalized. No reset, commit, push, or deployment was performed. |
+
+### Current architecture and security status
+
+- The application now includes additive Alembic revisions for AI candidate date metadata and goals/milestones. Startup compatibility handling remains for legacy knowledge ownership/vector metadata; no destructive reset was performed during this audit.
+- Planner behavior is implemented through [`PlannerPage.tsx`](../frontend/src/pages/PlannerPage.tsx); its deadline view now presents an interactive month grid and selected-day tasks using the existing user-owned task/deadline APIs in [`DeadlinesPage.tsx`](../frontend/src/pages/DeadlinesPage.tsx). Dashboard priority and task/deadline backend tests pass; these new frontend calendar interactions were not authenticated-browser-tested.
+- Goals and milestones are implemented through [`goals.py`](../backend/app/api/v1/endpoints/goals.py), [`goal_service.py`](../backend/app/services/goal_service.py), and [`test_goals.py`](../backend/app/tests/test_goals.py). Milestones can link to planner tasks and progress is computed from completion state.
+- Email proposals require review before task/deadline creation. Ambiguous dates require explicit confirmation, duplicate extraction is covered, and review authorization is tested in [`test_ai.py`](../backend/app/tests/test_ai.py).
+- Knowledge retrieval is workspace-scoped. Published document/version rows are revalidated before model input and citations are returned from authorized chunks. Workspace membership, manager denial, replacement publication, archive exclusion, prompt-injection rejection, and local vector-store workspace matching are covered in [`test_knowledge.py`](../backend/app/tests/test_knowledge.py).
+- Authentication uses signed session records and supports bearer or HttpOnly cookie authentication. Registration, login, logout/revocation, expiry, origin checks, account deletion, and deactivated/unauthenticated access are covered in [`test_auth.py`](../backend/app/tests/test_auth.py) and [`test_security.py`](../backend/app/tests/test_security.py).
+- Workspace authorization is verified by membership on the `X-Workspace-ID` boundary. Personal data remains user-scoped while knowledge documents are workspace-scoped. The test suite covers invitations, member management denial, selected-workspace retrieval, and cross-user task/goal isolation.
+
+### Current UI redesign phase audit
+
+| Phase | Status | Current evidence and limitation |
+| --- | --- | --- |
+| 1 — Application shell | **PARTIAL** | Route-aware horizontal study navigation, active-workspace selection, account controls, and a workspace sidebar are implemented in [`Layout.tsx`](../frontend/src/components/layout/Layout.tsx), [`Navbar.tsx`](../frontend/src/components/layout/Navbar.tsx), and [`layout.css`](../frontend/src/layout.css). Build/lint pass; protected navigation, workspace switching, and drawer behavior were not browser-tested. |
+| 2 — Main dashboard | **PARTIAL** | [`DashboardPage.tsx`](../frontend/src/pages/DashboardPage.tsx) now pairs existing task priorities with a month calendar whose event markers and selected-day list use dashboard API data. No authenticated UI interaction/data test was available. |
+| 3 — Study planner | **PARTIAL** | [`DeadlinesPage.tsx`](../frontend/src/pages/DeadlinesPage.tsx) now includes month/date navigation, task completion, and selected-day deadlines/tasks; the existing task/deadline APIs and URL view state remain. Backend coverage passes, but the new calendar UI was not browser-tested. |
+| 4 — Knowledge Hub and AI workspace | **PARTIAL** | [`KnowledgePage.tsx`](../frontend/src/pages/KnowledgePage.tsx) now has document selection, authorized PDF/image preview where the response content type supports it, citation-to-document navigation, and mobile panel tabs. The general assistant is explicitly distinguished from citation-backed Knowledge Q&A in [`AssistantPage.tsx`](../frontend/src/pages/AssistantPage.tsx). These authenticated flows remain browser-unverified. |
+| 5 — Remaining pages, themes, responsive polish | **PARTIAL** | Existing page layouts remain; a light/dark preference selector and dark token overrides were added in [`SettingsPage.tsx`](../frontend/src/pages/SettingsPage.tsx) and [`index.css`](../frontend/src/index.css). Public login responsive smoke passed at four widths; authenticated page layouts, theme persistence, and complete keyboard traversal were not tested. |
+| 6 — Final verification and documentation | **PARTIAL** | Backend tests, lint, TypeScript/build, Vite startup, public login responsive smoke, and this audit update passed. Protected workflows remain blocked by the unavailable backend service and credentials; there is no frontend test runner configured. |
+
+### Historical product roadmap audit
+
+The following table is preserved from the earlier product audit. Its phase names and statuses describe the pre-redesign product roadmap, not the current UI redesign phases above.
+
+| Phase | Status | Current evidence and limitation |
+| --- | --- | --- |
+| 1 — Academic Planner | **PARTIAL** | Backend task/deadline/dashboard tests and production build pass. No frontend interaction/browser test verifies the Planner toggle and CRUD flows end-to-end. |
+| 2 — Knowledge Hub | **PARTIAL** | Workspace authorization, document lifecycle, RAG citations, archive/replacement behavior, and injection handling pass in backend tests. Authenticated responsive management/Q&A UI flows are not browser-tested. The earlier Sidebar lint/access-state observation is historical; the current `npm run lint` passes without warnings. |
+| 3 — Gmail proposal flow | **PARTIAL** | Backend tests cover extraction, approval, rejection/validation boundaries, ambiguity confirmation, duplicate extraction, provider failures, and injection resistance. Inbox UI interaction and immediate visual planner updates are not browser-tested. |
+| 4 — Unified AI companion | **FAIL** | The assistant and knowledge Q&A remain separate frontend pages and backend endpoints; no combined context/citation/write-confirmation flow is implemented. |
+| 5 — Optional study groups and cleanup | **PARTIAL** | Workspace membership/invitation and authorization tests pass, but responsive workspace UI flows, account privacy behavior in the browser, and all navigation terminology paths are not end-to-end tested. |
+
+### Missing or insufficient tests
+
+- No frontend unit, component, or browser test suite is configured; frontend claims are limited to lint, TypeScript/build, static smoke, and source inspection.
+- Planner, Goals, Inbox approval, Knowledge Q&A, workspace switching, and responsive authenticated layouts lack browser-level interaction tests.
+- RAG tests use a deterministic in-memory vector-store double for most cases; the local Chroma/embedding path is only covered by a narrow workspace-matching smoke test, not a full end-to-end ingestion and retrieval run.
+- No test verifies every accessible page at mobile and desktop breakpoints, keyboard traversal through the protected shell, or screen-reader announcements during async loading/errors.
+- The backend suite does not establish production PostgreSQL behavior, multi-process rate limiting, real Google OAuth, or real external AI provider availability.
+
+## Historical audit — pre-RAG implementation baseline
+
+The following sections were written before institute/workspace knowledge retrieval was implemented. Their statements about missing tables, routes, dependencies, roles, and retrieval are historical findings and must not be read as current-state claims.
 
 ## Scope and evidence
 
@@ -45,7 +108,7 @@ Adding parser/vector/embedding dependencies must be an explicit manifest change,
 ## Main risks and open implementation constraints
 
 | Risk | Required control |
-|---|---|
+| --- | --- |
 | Existing database has no migration history | Add only new tables initially; document and test any necessary additive migration before rollout. Never reset the local database. |
 | Staff role misconfiguration | Make student the only registration role; bootstrap admin through an explicit server-side allowlist and audit all grants/revocations. |
 | Stale vector chunks reveal archived/replaced content | Check document and version state in the relational database before passing chunks to the model or returning them. |

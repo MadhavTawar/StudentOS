@@ -69,9 +69,9 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
                 style={{
                   padding: '0.625rem 0.75rem',
                   borderRadius: 'var(--radius-md)',
-                  backgroundColor: n.is_read ? 'transparent' : 'rgba(99, 102, 241, 0.08)',
+                  backgroundColor: n.is_read ? 'transparent' : 'var(--accent-primary-glow)',
                   border: '1px solid',
-                  borderColor: n.is_read ? 'var(--border-subtle)' : 'rgba(99, 102, 241, 0.25)',
+                  borderColor: n.is_read ? 'var(--border-subtle)' : 'var(--accent-border-soft)',
                   display: 'flex',
                   gap: '0.625rem',
                   alignItems: 'flex-start',

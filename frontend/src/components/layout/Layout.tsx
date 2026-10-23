@@ -1,23 +1,36 @@
-import React, { useEffect, useState } from 'react';
-import { Outlet, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
-import { Sidebar } from './Sidebar';
-import { Navbar } from './Navbar';
+import { TopBar } from './TopBar';
+import { api } from '../../lib/api';
 import { LoadingSkeleton } from '../common/LoadingSkeleton';
 
 export const Layout: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const { pathname } = useLocation();
+  const isWorkspaceShell = pathname.startsWith('/app/knowledge') || pathname.startsWith('/app/assistant');
 
   useEffect(() => {
-    if (!isSidebarOpen) return;
-
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setIsSidebarOpen(false);
+    if (!isAuthenticated) {
+      document.documentElement.dataset.theme = 'light';
+      return;
+    }
+    let isCurrent = true;
+    void api.getPreferences()
+      .then((preferences) => {
+        if (isCurrent) {
+          const resolved = preferences.theme === 'dark' ? 'dark' : 'light';
+          document.documentElement.dataset.theme = resolved;
+          try { localStorage.setItem('studentos-theme', resolved); } catch {}
+        }
+      })
+      .catch(() => {
+        if (isCurrent) document.documentElement.dataset.theme = 'light';
+      });
+    return () => {
+      isCurrent = false;
     };
-    window.addEventListener('keydown', closeOnEscape);
-    return () => window.removeEventListener('keydown', closeOnEscape);
-  }, [isSidebarOpen]);
+  }, [isAuthenticated]);
 
   if (isLoading) {
     return (
@@ -46,24 +59,11 @@ export const Layout: React.FC = () => {
   }
 
   return (
-    <div className="app-shell">
-      {isSidebarOpen && (
-        <button
-          type="button"
-          className="sidebar-backdrop"
-          aria-label="Close navigation menu"
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
-      <Sidebar mobileOpen={isSidebarOpen} onNavigate={() => setIsSidebarOpen(false)} />
-
+    <div className={`app-shell${isWorkspaceShell ? ' app-shell-workspace' : ' app-shell-study'}`}>
       <div className="app-content">
-        <Navbar
-          onMenuClick={() => setIsSidebarOpen(true)}
-          isMenuOpen={isSidebarOpen}
-        />
+        <TopBar />
         <main className="app-main">
-          <div style={{ maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
+          <div className="app-main-inner">
             <Outlet />
           </div>
         </main>

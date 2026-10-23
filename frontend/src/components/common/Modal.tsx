@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useId, useRef } from 'react';
 import { X } from 'lucide-react';
 
 interface ModalProps {
@@ -18,7 +18,19 @@ export const Modal: React.FC<ModalProps> = ({
   children,
   maxWidth = 'max-w-lg',
 }) => {
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const titleId = useId();
+  const descriptionId = useId();
+
   useEffect(() => {
+    if (!isOpen) return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    closeButtonRef.current?.focus();
+    return () => previouslyFocused?.focus();
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
         onClose();
@@ -32,6 +44,8 @@ export const Modal: React.FC<ModalProps> = ({
 
   return (
     <div
+      className="modal-backdrop"
+      role="presentation"
       style={{
         position: 'fixed',
         top: 0,
@@ -49,6 +63,10 @@ export const Modal: React.FC<ModalProps> = ({
       onClick={onClose}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={description ? descriptionId : undefined}
         className="card animate-fade-in"
         style={{
           width: '100%',
@@ -66,14 +84,17 @@ export const Modal: React.FC<ModalProps> = ({
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
           <div>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-main)' }}>{title}</h2>
+            <h2 id={titleId} style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-main)' }}>{title}</h2>
             {description && (
-              <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>{description}</p>
+              <p id={descriptionId} style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>{description}</p>
             )}
           </div>
           <button
+            ref={closeButtonRef}
+            type="button"
             onClick={onClose}
             className="btn btn-outline btn-icon"
+            aria-label="Close dialog"
             style={{ border: 'none', color: 'var(--text-dim)', cursor: 'pointer' }}
           >
             <X size={20} />

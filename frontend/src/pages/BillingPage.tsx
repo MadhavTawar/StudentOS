@@ -27,37 +27,37 @@ export const BillingPage: React.FC = () => {
   if (isLoading) return <div className="card">Loading plan details…</div>;
 
   return (
-    <section style={{ maxWidth: 760, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+    <section className="account-page billing-page">
       <header>
         <span className="sidebar-section-label">ACCOUNT</span>
-        <h1 style={{ margin: '0.35rem 0', color: 'var(--text-main)' }}>Plan & billing</h1>
-        <p style={{ color: 'var(--text-muted)', margin: 0 }}>Plan information belongs to each workspace.</p>
+        <h1 className="page-title page-title-dark">Plan & billing</h1>
+        <p className="page-description">Plan information belongs to each workspace.</p>
       </header>
-      {error && <div className="card" role="alert" style={{ color: '#fca5a5' }}>{error}</div>}
+      {error && <div className="card form-error" role="alert">{error}</div>}
       {billing && workspace && (
-        <article className="card" style={{ padding: '1.5rem' }}>
-          <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
+        <article className="card billing-card">
+          <div className="billing-header-row">
             <CreditCard size={21} color="var(--accent-primary)" />
             <div>
-              <h2 style={{ margin: 0, fontSize: '1.15rem' }}>{workspace.name}</h2>
-              <p style={{ margin: '0.25rem 0 0', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+              <h2 className="billing-workspace-title">{workspace.name}</h2>
+              <p className="billing-plan-subtitle">
                 {billing.plan_code.toUpperCase()} · {billing.status}
               </p>
             </div>
           </div>
-          <div style={{ margin: '1.25rem 0', padding: '1rem', borderRadius: 12, background: 'rgba(211, 131, 91, 0.08)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-            <Sparkles size={16} style={{ verticalAlign: 'text-bottom', marginRight: 6 }} />
+          <div className="billing-notice">
+            <Sparkles size={16} className="billing-sparkles" />
             Billing records are ready for a payment-provider integration, but no payment provider is connected and no charge will be made.
           </div>
           <button type="button" className="btn btn-outline" disabled title="Payment integration is not configured">
             Manage subscription — coming later
           </button>
-          <p style={{ color: 'var(--text-dim)', fontSize: '0.78rem', marginBottom: 0 }}>
+          <p className="billing-note">
             Plans and prices have not been set. No paid tier is being advertised or enabled.
           </p>
         </article>
       )}
-      <Link to="/app/workspaces" style={{ color: 'var(--accent-primary)' }}>Manage workspaces and members</Link>
+      <Link to="/app/workspaces" className="billing-manage-link">Manage workspaces and members</Link>
     </section>
   );
 };

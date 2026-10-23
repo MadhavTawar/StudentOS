@@ -40,25 +40,12 @@ class ApiClient {
     return localStorage.getItem('studentos_workspace_id');
   }
 
-  private getToken(): string | null {
-    return null;
-  }
-
-  clearToken() {
-    localStorage.removeItem('studentos_token');
-  }
-
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const token = this.getToken();
     const headers: Record<string, string> = {
       ...(options.headers as Record<string, string> || {}),
     };
     if (!(options.body instanceof FormData)) {
       headers['Content-Type'] = 'application/json';
-    }
-
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
     }
 
     if (endpoint.startsWith('/knowledge/')) {
@@ -78,7 +65,6 @@ class ApiClient {
       !endpoint.includes('/auth/register') &&
       endpoint !== '/auth/me'
     ) {
-      this.clearToken();
       window.dispatchEvent(new CustomEvent('auth:expired'));
     }
 
@@ -116,11 +102,7 @@ class ApiClient {
   }
 
   async logout(): Promise<void> {
-    try {
-      await this.request('/auth/logout', { method: 'POST' });
-    } finally {
-      this.clearToken();
-    }
+    await this.request('/auth/logout', { method: 'POST' });
   }
 
   async getMe(): Promise<User> {

@@ -151,14 +151,14 @@ export const TasksPage: React.FC = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+    <div className="productivity-page">
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+      <div className="page-heading">
         <div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em' }}>
+          <h1 className="page-title">
             Task Management
           </h1>
-          <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+          <p className="page-description">
             Track academic assignments, laboratory coursework, and examination prep.
           </p>
         </div>
@@ -170,38 +170,25 @@ export const TasksPage: React.FC = () => {
 
       {/* Filter and Search Bar */}
       <div
-        className="card"
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: '0.75rem',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0.875rem 1rem',
-        }}
+        className="card planner-toolbar"
       >
-        <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: '0.5rem', flex: '1 1 260px' }}>
-          <div style={{ position: 'relative', width: '100%' }}>
-            <input
-              type="text"
-              className="input"
-              placeholder="Search tasks by title..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{ paddingLeft: '2.25rem' }}
-            />
-            <Search
-              size={16}
-              color="var(--text-dim)"
-              style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)' }}
-            />
+        <form onSubmit={handleSearchSubmit} className="task-search-form">
+          <div className="task-search-field">
+              <input
+                type="text"
+                className="input task-search-input"
+                placeholder="Search tasks by title..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                aria-label="Search tasks"
+              />
+              <Search size={16} className="task-search-icon" />
           </div>
         </form>
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
+        <div className="task-filters">
           <select
-            className="input"
-            style={{ width: 'auto', padding: '0.5rem 0.75rem' }}
+            className="input task-filter-select"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
@@ -213,8 +200,7 @@ export const TasksPage: React.FC = () => {
           </select>
 
           <select
-            className="input"
-            style={{ width: 'auto', padding: '0.5rem 0.75rem' }}
+            className="input task-filter-select"
             value={priorityFilter}
             onChange={(e) => setPriorityFilter(e.target.value)}
           >
@@ -226,8 +212,7 @@ export const TasksPage: React.FC = () => {
           </select>
 
           <select
-            className="input"
-            style={{ width: 'auto', padding: '0.5rem 0.75rem' }}
+            className="input task-filter-select"
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
           >
@@ -240,9 +225,11 @@ export const TasksPage: React.FC = () => {
           </select>
 
           <button
+            type="button"
             onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
             className="btn btn-outline btn-sm"
             title="Toggle sort order"
+            aria-label={`Sort tasks ${sortOrder === 'asc' ? 'descending' : 'ascending'}`}
           >
             <ArrowUpDown size={14} />
             {sortOrder.toUpperCase()}
@@ -268,64 +255,37 @@ export const TasksPage: React.FC = () => {
           action={<Button variant="primary" onClick={openCreateModal}>Create First Task</Button>}
         />
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        <div className="planner-list">
           {tasks.map((task) => (
             <div
               key={task.id}
-              className="card card-hover"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '1rem 1.25rem',
-                gap: '1rem',
-                opacity: task.status === 'Completed' ? 0.7 : 1,
-              }}
+              className={`card card-hover task-row ${task.status === 'Completed' ? 'is-completed' : ''}`}
             >
               {/* Checkbox and Title */}
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.875rem', flex: 1 }}>
+              <div className="task-main">
                 <input
                   type="checkbox"
                   checked={task.status === 'Completed'}
                   onChange={() => handleToggleTask(task)}
-                  style={{
-                    width: '20px',
-                    height: '20px',
-                    accentColor: 'var(--accent-primary)',
-                    cursor: 'pointer',
-                    marginTop: '3px',
-                  }}
+                  className="task-checkbox"
                 />
-                <div style={{ flex: 1 }}>
-                  <div
-                    style={{
-                      fontSize: '0.9375rem',
-                      fontWeight: 600,
-                      color: task.status === 'Completed' ? 'var(--text-muted)' : '#ffffff',
-                      textDecoration: task.status === 'Completed' ? 'line-through' : 'none',
-                    }}
-                  >
+                <div className="task-content">
+                  <div className="task-title">
                     {task.title}
                   </div>
                   {task.description && (
-                    <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                    <div className="task-description">
                       {task.description}
                     </div>
                   )}
 
                   {/* Metadata Tags */}
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center', marginTop: '0.5rem' }}>
+                  <div className="task-meta">
                     <CategoryBadge category={task.category} />
                     <PriorityBadge priority={task.priority} />
                     {task.due_date && (
                       <span
-                        style={{
-                          fontSize: '0.75rem',
-                          color: new Date(task.due_date) < currentTime && task.status !== 'Completed' ? '#f87171' : 'var(--text-dim)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                        }}
+                        className={`task-due ${new Date(task.due_date) < currentTime && task.status !== 'Completed' ? 'is-overdue' : ''}`}
                       >
                         <Clock size={12} />
                         {new Date(task.due_date).toLocaleDateString([], {
@@ -337,7 +297,7 @@ export const TasksPage: React.FC = () => {
                       </span>
                     )}
                     {task.source_type !== 'manual' && (
-                      <span className="badge" style={{ backgroundColor: 'rgba(99, 102, 241, 0.1)', color: 'var(--accent-primary)' }}>
+                      <span className="badge task-source-badge">
                         From {task.source_type}
                       </span>
                     )}
@@ -346,18 +306,22 @@ export const TasksPage: React.FC = () => {
               </div>
 
               {/* Actions */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <div className="task-actions">
                 <button
+                  type="button"
                   onClick={() => openEditModal(task)}
                   className="btn btn-outline btn-icon btn-sm"
                   title="Edit task"
+                  aria-label={`Edit ${task.title}`}
                 >
                   <Edit2 size={16} />
                 </button>
                 <button
+                  type="button"
                   onClick={() => setDeletingTaskId(task.id)}
                   className="btn btn-danger btn-icon btn-sm"
                   title="Delete task"
+                  aria-label={`Delete ${task.title}`}
                 >
                   <Trash2 size={16} />
                 </button>
@@ -374,7 +338,7 @@ export const TasksPage: React.FC = () => {
         title={editingTask ? 'Edit Task' : 'Create New Academic Task'}
         description="Provide comprehensive details for your study schedule."
       >
-        <form onSubmit={handleSaveTask} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <form onSubmit={handleSaveTask} className="task-modal-form">
           <div>
             <label className="label" htmlFor="taskTitle">
               Task Title *
@@ -403,7 +367,7 @@ export const TasksPage: React.FC = () => {
             />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div className="task-form-grid">
             <div>
               <label className="label" htmlFor="taskCategory">
                 Category
@@ -440,7 +404,7 @@ export const TasksPage: React.FC = () => {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div className="task-form-grid">
             <div>
               <label className="label" htmlFor="taskDueDate">
                 Due Date & Time
@@ -470,7 +434,7 @@ export const TasksPage: React.FC = () => {
             </div>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem' }}>
+          <div className="task-form-actions">
             <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
               Cancel
             </Button>
@@ -488,7 +452,7 @@ export const TasksPage: React.FC = () => {
         title="Confirm Task Deletion"
         description="Are you sure you want to delete this task? This action cannot be undone."
       >
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.5rem' }}>
+        <div className="task-form-actions">
           <Button variant="outline" onClick={() => setDeletingTaskId(null)}>
             Cancel
           </Button>

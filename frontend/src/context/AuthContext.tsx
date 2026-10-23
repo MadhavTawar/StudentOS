@@ -28,7 +28,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch {
       if (requestId === authRequestId.current) {
         setUser(null);
-        api.clearToken();
         api.setWorkspaceId(null);
       }
     } finally {
@@ -39,7 +38,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    api.clearToken();
     void Promise.resolve().then(refreshUser);
 
     const handleAuthExpired = () => {

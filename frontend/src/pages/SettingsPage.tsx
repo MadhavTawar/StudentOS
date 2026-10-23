@@ -56,6 +56,7 @@ export const SettingsPage: React.FC = () => {
         ai_features_enabled: aiFeatures,
         reminder_lead_minutes: leadTime,
       });
+      document.documentElement.dataset.theme = theme === 'dark' ? 'dark' : 'light';
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err: any) {
@@ -81,43 +82,31 @@ export const SettingsPage: React.FC = () => {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+    <div className="account-page settings-page">
       {/* Header */}
       <div>
-        <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em' }}>
+        <h1 className="page-title">
           Settings & Privacy Controls
         </h1>
-        <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+        <p className="page-description">
           Manage your account preferences and understand how your workspace data is handled.
         </p>
       </div>
 
       {saveSuccess && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.625rem',
-            padding: '0.75rem 1rem',
-            borderRadius: 'var(--radius-md)',
-            backgroundColor: 'rgba(16, 185, 129, 0.12)',
-            border: '1px solid rgba(16, 185, 129, 0.3)',
-            color: '#34d399',
-            fontSize: '0.875rem',
-          }}
-        >
+        <div className="settings-saved-notice">
           <CheckCircle size={18} />
           <span>Preferences saved successfully.</span>
         </div>
       )}
 
       {/* Preferences Form */}
-      <form onSubmit={handleSave} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-        <h2 style={{ fontSize: '1.125rem', fontWeight: 700, color: '#ffffff', borderBottom: '1px solid var(--border-card)', paddingBottom: '0.75rem' }}>
+      <form onSubmit={handleSave} className="card settings-prefs-form">
+        <h2 className="settings-section-title">
           Personal Preferences
         </h2>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.25rem' }}>
+        <div className="settings-form-grid">
           <div>
             <label className="label" htmlFor="timezoneSelect">
               Display Time Zone
@@ -155,37 +144,54 @@ export const SettingsPage: React.FC = () => {
               <option value={2880}>48 hours (2 days before)</option>
             </select>
           </div>
+
+          <div>
+            <label className="label" htmlFor="themeSelect">Appearance</label>
+            <select
+              id="themeSelect"
+              className="input"
+              value={theme === 'dark' ? 'dark' : 'light'}
+              onChange={(event) => {
+                const nextTheme = event.target.value;
+                setTheme(nextTheme);
+                document.documentElement.dataset.theme = nextTheme;
+              }}
+            >
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
+          </div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', paddingTop: '0.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div className="settings-toggles">
+          <div className="settings-toggle-row">
             <input
               id="emailSyncToggle"
               type="checkbox"
               checked={emailSync}
               onChange={(e) => setEmailSync(e.target.checked)}
-              style={{ width: '18px', height: '18px', accentColor: 'var(--accent-primary)', cursor: 'pointer' }}
+              className="settings-checkbox"
             />
-            <label htmlFor="emailSyncToggle" style={{ fontSize: '0.875rem', color: 'var(--text-main)', cursor: 'pointer' }}>
+            <label htmlFor="emailSyncToggle" className="settings-toggle-label">
               <strong>Enable Gmail Sync:</strong> Periodically refresh academic message headers and preview snippets.
             </label>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div className="settings-toggle-row">
             <input
               id="aiFeaturesToggle"
               type="checkbox"
               checked={aiFeatures}
               onChange={(e) => setAiFeatures(e.target.checked)}
-              style={{ width: '18px', height: '18px', accentColor: 'var(--accent-primary)', cursor: 'pointer' }}
+              className="settings-checkbox"
             />
-            <label htmlFor="aiFeaturesToggle" style={{ fontSize: '0.875rem', color: 'var(--text-main)', cursor: 'pointer' }}>
+            <label htmlFor="aiFeaturesToggle" className="settings-toggle-label">
               <strong>Enable AI Assistant & Extraction:</strong> Allows rule-based and provider NLP analysis for candidate proposals.
             </label>
           </div>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--border-card)', paddingTop: '1rem' }}>
+        <div className="settings-save-actions">
           <Button type="submit" variant="primary" isLoading={isSaving} icon={<Save size={16} />}>
             Save Preferences
           </Button>
@@ -193,39 +199,39 @@ export const SettingsPage: React.FC = () => {
       </form>
 
       {/* Transparent Privacy Policy & Data Control */}
-      <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+      <div className="card settings-data-card">
+        <div className="settings-data-header">
           <Shield size={20} color="var(--accent-primary)" />
-          <h2 style={{ fontSize: '1.125rem', fontWeight: 700, color: '#ffffff' }}>
+          <h2 className="settings-section-title">
             Privacy, Consent & Data Governance
           </h2>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-          <div style={{ padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-card)' }}>
-            <div style={{ fontWeight: 700, color: '#ffffff', marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div className="settings-data-content">
+          <div className="settings-data-item">
+            <div className="settings-data-item-title">
               <Mail size={16} color="var(--accent-secondary)" /> What Gmail Data is Accessed?
             </div>
             When you connect Gmail, StudentOS requests strictly <strong>read-only scope (<code>gmail.readonly</code>)</strong>.
             We only fetch recent message headers (sender, subject, date) and brief snippets. We <strong>never download full email bodies</strong> or attachments by default, and we never request permission to send, edit, or delete your emails.
           </div>
 
-          <div style={{ padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-card)' }}>
-            <div style={{ fontWeight: 700, color: '#ffffff', marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div className="settings-data-item">
+            <div className="settings-data-item-title">
               <Lock size={16} color="var(--accent-warning)" /> How Are Tokens Stored?
             </div>
             OAuth access and refresh tokens are encrypted using Fernet with a server-configured key. Raw credentials are not shown in the app.
           </div>
 
-          <div style={{ padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-card)' }}>
-            <div style={{ fontWeight: 700, color: '#ffffff', marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div className="settings-data-item">
+            <div className="settings-data-item-title">
               <Bot size={16} color="var(--accent-primary)" /> How Does AI Processing Work?
             </div>
             AI extraction creates proposals only; a task or deadline is not added until you approve it. The offline provider processes data on the StudentOS backend. If an external AI provider is configured, the relevant prompt and source text may be sent to that provider.
           </div>
 
-          <div style={{ padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-card)' }}>
-            <div style={{ fontWeight: 700, color: '#ffffff', marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div className="settings-data-item">
+            <div className="settings-data-item-title">
               <Database size={16} color="var(--accent-primary)" /> Personal and shared data
             </div>
             Coursework, reminders, Gmail data, and assistant context are private to your account. Only documents you publish in a shared workspace library are available to that workspace’s members.
@@ -233,10 +239,10 @@ export const SettingsPage: React.FC = () => {
         </div>
 
         {/* Data Clearing Controls */}
-        <div style={{ borderTop: '1px solid var(--border-card)', paddingTop: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+        <div className="settings-data-clear">
           <div>
-            <div style={{ fontSize: '0.875rem', fontWeight: 700, color: '#ffffff' }}>Email Data Controls</div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
+            <div className="settings-data-clear-title">Email Data Controls</div>
+            <div className="settings-data-clear-desc">
               Clear stored email previews and disconnect the connected Google account.
             </div>
           </div>

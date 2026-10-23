@@ -12,6 +12,7 @@ import { RemindersPage } from './pages/RemindersPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { OAuthCallbackPage } from './pages/OAuthCallbackPage';
 import { KnowledgePage } from './pages/KnowledgePage';
+import { KnowledgeAdminPage } from './pages/KnowledgeAdminPage';
 import { MarketingHomePage } from './pages/MarketingHomePage';
 import { WorkspacesPage } from './pages/WorkspacesPage';
 import { BillingPage } from './pages/BillingPage';
@@ -38,7 +39,7 @@ export function App() {
             <Route path="inbox" element={<InboxPage />} />
             <Route path="assistant" element={<AssistantPage />} />
             <Route path="knowledge" element={<KnowledgePage />} />
-            <Route path="knowledge/manage" element={<Navigate to="/app/knowledge" replace />} />
+            <Route path="knowledge/manage" element={<KnowledgeAdminPage />} />
             <Route path="reminders" element={<RemindersPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="workspaces" element={<WorkspacesPage />} />

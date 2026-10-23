@@ -31,18 +31,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onNavigate,
 }) => {
   const [collapsed, setCollapsed] = useState(false);
-  const [showDocumentDesk, setShowDocumentDesk] = useState(false);
   const [workspaces, setWorkspaces] = useState<{ id: string; name: string; is_personal: boolean }[]>([]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState(api.getWorkspaceId() ?? '');
   const navigate = useNavigate();
   useEffect(() => {
     let isCurrent = true;
-    Promise.all([api.listWorkspaces(), api.getKnowledgeAccess()])
-      .then(([availableWorkspaces, access]) => {
+    api.listWorkspaces()
+      .then((availableWorkspaces) => {
         if (isCurrent) {
           setWorkspaces(availableWorkspaces);
           setActiveWorkspaceId(api.getWorkspaceId() ?? availableWorkspaces.find((item) => item.is_personal)?.id ?? '');
-          setShowDocumentDesk(access.can_manage_documents);
         }
       })
       .catch((error: unknown) => {
@@ -53,33 +51,44 @@ export const Sidebar: React.FC<SidebarProps> = ({
     };
   }, []);
 
+
   const handleWorkspaceChange = (workspaceId: string) => {
     setActiveWorkspaceId(workspaceId);
     api.setWorkspaceId(workspaceId);
     navigate('/app/knowledge');
   };
 
-  const navItems = [
-    { name: 'Study desk', path: '/app', icon: <LayoutDashboard size={19} /> },
-    { name: 'Planner', path: '/app/planner', icon: <CheckSquare size={19} /> },
-    { name: 'Goals', path: '/app/goals', icon: <Target size={19} /> },
-    { name: 'Inbox', path: '/app/inbox', icon: <Mail size={19} /> },
-    { name: 'Shared library', path: '/app/knowledge', icon: <BookOpen size={19} /> },
+  const navGroups = [
     {
-      name: 'Study guide',
-      path: '/app/assistant',
-      icon: <Bot size={19} />,
-      badge: pendingProposalsCount > 0 ? `${pendingProposalsCount}` : undefined,
+      label: 'Study desk',
+      items: [
+        { name: 'Study desk', path: '/app', icon: <LayoutDashboard size={19} /> },
+        { name: 'Planner', path: '/app/planner', icon: <CheckSquare size={19} /> },
+        { name: 'Goals', path: '/app/goals', icon: <Target size={19} /> },
+        { name: 'Inbox', path: '/app/inbox', icon: <Mail size={19} /> },
+        {
+          name: 'Study guide',
+          path: '/app/assistant',
+          icon: <Bot size={19} />,
+          badge: pendingProposalsCount > 0 ? `${pendingProposalsCount}` : undefined,
+        },
+        {
+          name: 'Reminders',
+          path: '/app/reminders',
+          icon: <Bell size={19} />,
+          badge: unreadNotifsCount > 0 ? `${unreadNotifsCount}` : undefined,
+        },
+      ],
     },
     {
-      name: 'Reminders',
-      path: '/app/reminders',
-      icon: <Bell size={19} />,
-      badge: unreadNotifsCount > 0 ? `${unreadNotifsCount}` : undefined,
+      label: 'Workspace',
+      items: [
+        { name: 'Shared library', path: '/app/knowledge', icon: <BookOpen size={19} /> },
+        { name: 'Workspaces', path: '/app/workspaces', icon: <Users size={19} /> },
+        { name: 'Preferences', path: '/app/settings', icon: <Settings size={19} /> },
+        { name: 'Plan & billing', path: '/app/billing', icon: <Sparkles size={19} /> },
+      ],
     },
-    { name: 'Preferences', path: '/app/settings', icon: <Settings size={19} /> },
-    { name: 'Workspaces', path: '/app/workspaces', icon: <Users size={19} /> },
-    { name: 'Plan & billing', path: '/app/billing', icon: <Sparkles size={19} /> },
   ];
 
   return (
@@ -114,7 +123,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <select
             id="workspace-switcher"
             className="input"
-            value={activeWorkspaceId}
+            value={api.getWorkspaceId() ?? activeWorkspaceId}
             onChange={(event) => handleWorkspaceChange(event.target.value)}
             style={{ marginTop: '0.4rem', fontSize: '0.8125rem', padding: '0.55rem' }}
           >
@@ -128,20 +137,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
       )}
 
       <nav className="sidebar-nav" aria-label="Main navigation">
-        <span className="sidebar-section-label">YOUR STUDY DESK</span>
-        {navItems.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            end={item.path === '/app'}
-            onClick={onNavigate}
-            title={collapsed ? item.name : undefined}
-            className={({ isActive }) => `sidebar-link${isActive ? ' is-active' : ''}`}
-          >
-            <span className="sidebar-link-icon">{item.icon}</span>
-            <span className="sidebar-link-label">{item.name}</span>
-            {item.badge && <span className="sidebar-link-badge">{item.badge}</span>}
-          </NavLink>
+        {navGroups.map((group) => (
+          <div className="sidebar-nav-group" key={group.label}>
+            <span className="sidebar-section-label">{group.label}</span>
+            {group.items.map((item) => (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                end={item.path === '/app'}
+                onClick={onNavigate}
+                title={collapsed ? item.name : undefined}
+                className={({ isActive }) => `sidebar-link${isActive ? ' is-active' : ''}`}
+              >
+                <span className="sidebar-link-icon">{item.icon}</span>
+                <span className="sidebar-link-label">{item.name}</span>
+                {item.badge && <span className="sidebar-link-badge">{item.badge}</span>}
+              </NavLink>
+            ))}
+          </div>
         ))}
       </nav>
 

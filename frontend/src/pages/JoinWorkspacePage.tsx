@@ -28,18 +28,18 @@ export const JoinWorkspacePage: React.FC = () => {
   }, [isAuthenticated, isLoading, navigate, token]);
 
   return (
-    <main style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: 'var(--bg-main)', padding: '1.5rem' }}>
-      <section className="card" style={{ width: 'min(100%, 440px)', padding: '2rem' }}>
+    <main className="public-centered-page">
+      <section className="card public-centered-card">
         <span className="sidebar-section-label">STUDENTOS WORKSPACE</span>
-        <h1 style={{ color: 'var(--text-main)', marginBottom: '0.5rem' }}>
+        <h1 className="page-title page-title-dark">
           {isAuthenticated ? 'Joining workspace…' : 'You’re invited'}
         </h1>
-        <p style={{ color: 'var(--text-muted)', lineHeight: 1.6 }}>
+        <p className="page-description public-card-copy">
           Sign in or create an account to accept this one-time invitation. Anyone with the link can join, so only share it with people you trust.
         </p>
-        {displayedError && <p role="alert" style={{ color: '#fca5a5' }}>{displayedError}</p>}
+        {displayedError && <p role="alert" className="form-error">{displayedError}</p>}
         {token && !isAuthenticated && !isLoading && (
-          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <div className="public-center-actions">
             <Link className="btn btn-primary" to={`/register?invite=${encodedInvite}`}>Create account</Link>
             <Link className="btn btn-outline" to={`/login?invite=${encodedInvite}`}>Sign in</Link>
           </div>

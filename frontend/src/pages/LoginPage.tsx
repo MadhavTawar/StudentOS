@@ -37,95 +37,42 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div
-      className="login-screen"
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'var(--bg-main)',
-        padding: '1.5rem',
-      }}
-    >
-      <div
-        className="card login-card animate-fade-in"
-        style={{
-          width: '100%',
-          maxWidth: '410px',
-          padding: '2rem',
-          backgroundColor: 'var(--bg-card)',
-          borderColor: 'var(--border-card)',
-          boxShadow: 'var(--shadow-modal)',
-        }}
-      >
+    <div className="login-screen">
+      <div className="card login-card animate-fade-in">
         {/* Brand Header */}
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <div
-            style={{
-              width: '44px',
-              height: '44px',
-              borderRadius: 'var(--radius-lg)',
-              background: 'linear-gradient(145deg, #d3835b 0%, #a9523e 100%)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#ffffff',
-              boxShadow: 'var(--shadow-glow)',
-              marginBottom: '0.75rem',
-            }}
-          >
+        <div className="login-brand">
+          <div className="login-logo">
             <GraduationCap size={28} />
           </div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.03em' }}>
-            Welcome back to Student<span style={{ color: 'var(--accent-primary)' }}>OS</span>
+          <h1 className="login-title">
+            Welcome back to Student<span className="login-accent">OS</span>
           </h1>
-          <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>
-            Sign in to your personal workspace
-          </p>
+          <p className="login-subtitle">Sign in to your personal workspace</p>
         </div>
 
         {error && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.625rem',
-              padding: '0.75rem 1rem',
-              borderRadius: 'var(--radius-md)',
-              backgroundColor: 'rgba(239, 68, 68, 0.12)',
-              border: '1px solid rgba(239, 68, 68, 0.3)',
-              color: '#fca5a5',
-              fontSize: '0.875rem',
-              marginBottom: '1.5rem',
-            }}
-          >
+          <div className="login-error">
             <AlertCircle size={18} className="shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        <form onSubmit={handleSubmit} className="login-form">
           <div>
             <label className="label" htmlFor="email">
               Email address
             </label>
-            <div style={{ position: 'relative' }}>
+            <div className="login-input-wrapper">
               <input
                 id="email"
                 type="email"
                 required
-                className="input"
+                className="input login-input"
                 placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                style={{ paddingLeft: '2.5rem' }}
               />
-              <Mail
-                size={16}
-                color="var(--text-dim)"
-                style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)' }}
-              />
+              <Mail size={16} className="login-input-icon" />
             </div>
           </div>
 
@@ -133,22 +80,17 @@ export const LoginPage: React.FC = () => {
             <label className="label" htmlFor="password">
               Password
             </label>
-            <div style={{ position: 'relative' }}>
+            <div className="login-input-wrapper">
               <input
                 id="password"
                 type="password"
                 required
-                className="input"
+                className="input login-input"
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                style={{ paddingLeft: '2.5rem' }}
               />
-              <Lock
-                size={16}
-                color="var(--text-dim)"
-                style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)' }}
-              />
+              <Lock size={16} className="login-input-icon" />
             </div>
           </div>
 
@@ -156,16 +98,16 @@ export const LoginPage: React.FC = () => {
             type="submit"
             variant="primary"
             isLoading={isLoading}
-            style={{ width: '100%', marginTop: '0.5rem', padding: '0.75rem' }}
+            className="login-submit-btn"
           >
             Sign In <ArrowRight size={16} />
           </Button>
         </form>
 
-        <div style={{ textAlign: 'center', marginTop: '1.75rem', borderTop: '1px solid var(--border-subtle)', paddingTop: '1.25rem' }}>
-          <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+        <div className="login-footer">
+          <p className="login-footer-text">
             Don't have an account?{' '}
-            <Link to="/register" style={{ color: 'var(--accent-primary)', fontWeight: 600, textDecoration: 'none' }}>
+            <Link to="/register" className="login-footer-link">
               Create an account
             </Link>
           </p>

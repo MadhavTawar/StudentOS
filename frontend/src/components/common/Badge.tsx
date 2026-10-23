@@ -21,16 +21,5 @@ export const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
 };
 
 export const CategoryBadge: React.FC<{ category: string }> = ({ category }) => {
-  return (
-    <span
-      className="badge"
-      style={{
-        backgroundColor: 'rgba(255, 255, 255, 0.06)',
-        color: 'var(--text-muted)',
-        border: '1px solid var(--border-card)',
-      }}
-    >
-      {category}
-    </span>
-  );
+  return <span className="badge badge-category">{category}</span>;
 };
