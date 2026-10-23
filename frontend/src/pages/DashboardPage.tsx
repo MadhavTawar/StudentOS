@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/useAuth';
 import { api } from '../lib/api';
-import { DashboardOverview } from '../types';
+import { DashboardOverview, Goal } from '../types';
 import { Button } from '../components/common/Button';
 import { PriorityBadge, StatusBadge } from '../components/common/Badge';
 import { EmptyState } from '../components/common/EmptyState';
@@ -27,6 +27,7 @@ export const DashboardPage: React.FC = () => {
   const [calendarMonth, setCalendarMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(() => new Date());
   const [data, setData] = useState<DashboardOverview | null>(null);
+  const [goals, setGoals] = useState<Goal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,8 +42,12 @@ export const DashboardPage: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const overview = await api.getDashboardOverview();
+      const [overview, goalList] = await Promise.all([
+        api.getDashboardOverview(),
+        api.listGoals(),
+      ]);
       setData(overview);
+      setGoals(goalList);
     } catch (err: any) {
       setError(err.message || 'Failed to load dashboard data.');
     } finally {
@@ -424,25 +429,42 @@ export const DashboardPage: React.FC = () => {
                 <div className="dashboard-card-icon"><CheckSquare size={18} /></div>
                 <h2 className="dashboard-card-title">Goals</h2>
               </div>
+              <Link to="/app/goals" className="dashboard-card-link">Manage goals <ArrowRight size={13} /></Link>
             </div>
-            {data.upcoming_deadlines.length === 0 && (
-              <div className="dashboard-goals-empty">Add goals from the Goals page to track progress here.</div>
-            )}
-            <div className="dashboard-goals-list">
-              {data.upcoming_deadlines.slice(0, 3).map((goal) => (
-                <div key={goal.id} className="dashboard-goal-row">
-                  <div className="dashboard-goal-info">
-                    <div className="dashboard-goal-title">{goal.title}</div>
-                    <div className="dashboard-goal-caption">{new Date(goal.due_date).toLocaleDateString([], { month: 'short', day: 'numeric' })}</div>
-                  </div>
-                  <div className="dashboard-goal-progress">
-                    <div className="dashboard-goal-track">
-                      <div className="dashboard-goal-bar" style={{ width: '40%' }} />
+            {goals.length === 0 ? (
+              <div className="dashboard-goals-empty">No goals yet. Create your first goal to track progress.</div>
+            ) : (
+              <div className="dashboard-goals-list">
+                {goals
+                  .filter((g) => g.status === 'Active')
+                  .slice(0, 3)
+                  .map((goal) => (
+                    <div key={goal.id} className="dashboard-goal-row">
+                      <div className="dashboard-goal-info">
+                        <div className="dashboard-goal-title">{goal.title}</div>
+                        <div className="dashboard-goal-caption">
+                          {goal.completed_milestones} of {goal.total_milestones} milestones
+                        </div>
+                      </div>
+                      <div className="dashboard-goal-progress">
+                        <div
+                          className="dashboard-goal-track"
+                          role="progressbar"
+                          aria-label={`${goal.title} progress`}
+                          aria-valuemin={0}
+                          aria-valuemax={100}
+                          aria-valuenow={goal.progress_percent}
+                        >
+                          <div
+                            className="dashboard-goal-bar"
+                            style={{ width: `${goal.progress_percent}%` }}
+                          />
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                  ))}
+              </div>
+            )}
           </section>
         </div>
       </div>
