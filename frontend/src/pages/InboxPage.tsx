@@ -206,7 +206,6 @@ export const InboxPage: React.FC = () => {
             <div className="inbox-search-field">
               <input
                 type="text"
-                className="input"
                 placeholder="Search emails by sender or subject..."
                 value={search}
                 onChange={(e) => {
@@ -214,14 +213,10 @@ export const InboxPage: React.FC = () => {
                   setSearch(e.target.value);
                 }}
                 onKeyDown={(e) => e.key === 'Enter' && fetchInbox()}
-                style={{ paddingLeft: '2.25rem' }}
+                className="input inbox-search-input"
                 aria-label="Search emails"
               />
-              <Search
-                size={16}
-                color="var(--text-dim)"
-                style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)' }}
-              />
+              <Search size={16} className="inbox-search-icon" />
             </div>
 
             <Button variant="outline" size="sm" onClick={fetchInbox} icon={<RefreshCw size={14} />}>
@@ -320,7 +315,7 @@ export const InboxPage: React.FC = () => {
           {isExtracting ? (
             <div className="proposal-loading">
               <LoadingSkeleton rows={3} height="45px" />
-              <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginTop: '1rem' }}>
+              <p className="proposal-loading-text">
                 Analyzing email with prompt-injection defense and extracting structured proposals...
               </p>
             </div>

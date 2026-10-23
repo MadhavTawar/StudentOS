@@ -123,30 +123,22 @@ export const RemindersPage: React.FC = () => {
               key={reminder.id}
               className={`card card-hover reminder-row ${reminder.status === 'Dismissed' ? 'is-dismissed' : ''}`}
             >
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
-                  <span style={{ fontSize: '1rem', fontWeight: 700, color: '#ffffff' }}>
-                    {reminder.title}
-                  </span>
-                  <span
-                    className="badge"
-                    style={{
-                      backgroundColor: reminder.status === 'Pending' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255, 255, 255, 0.05)',
-                      color: reminder.status === 'Pending' ? 'var(--accent-primary)' : 'var(--text-dim)',
-                    }}
-                  >
+            <div className="reminder-main">
+                <div className="reminder-title-row">
+                  <span className="reminder-title-text">{reminder.title}</span>
+                  <span className={`badge reminder-status-badge ${reminder.status === 'Pending' ? 'is-pending' : 'is-dismissed'}`}>
                     {reminder.status}
                   </span>
                 </div>
 
                 {reminder.message && (
-                  <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                  <div className="reminder-message">
                     {reminder.message}
                   </div>
                 )}
 
-                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--text-dim)' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <div className="reminder-meta">
+                  <span className="reminder-clock">
                     <Clock size={12} />
                     Remind at: {new Date(reminder.remind_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
                   </span>
@@ -171,7 +163,7 @@ export const RemindersPage: React.FC = () => {
         title="Schedule In-App Reminder"
         description="Set a time-zone aware persistent reminder."
       >
-        <form onSubmit={handleCreateReminder} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <form onSubmit={handleCreateReminder} className="reminder-form">
           <div>
             <label className="label" htmlFor="remTitle">
               Reminder Title *
@@ -200,7 +192,7 @@ export const RemindersPage: React.FC = () => {
             />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div className="reminder-form-row">
             <div>
               <label className="label" htmlFor="remTime">
                 Remind At (Date & Time) *
@@ -253,7 +245,7 @@ export const RemindersPage: React.FC = () => {
             </select>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem' }}>
+          <div className="reminder-form-actions">
             <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
               Cancel
             </Button>

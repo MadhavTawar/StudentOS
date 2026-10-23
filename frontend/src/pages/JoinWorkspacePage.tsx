@@ -39,7 +39,7 @@ export const JoinWorkspacePage: React.FC = () => {
         </p>
         {displayedError && <p role="alert" className="form-error">{displayedError}</p>}
         {token && !isAuthenticated && !isLoading && (
-          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <div className="public-center-actions">
             <Link className="btn btn-primary" to={`/register?invite=${encodedInvite}`}>Create account</Link>
             <Link className="btn btn-outline" to={`/login?invite=${encodedInvite}`}>Sign in</Link>
           </div>

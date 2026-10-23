@@ -43,95 +43,44 @@ export const RegisterPage: React.FC = () => {
   };
 
   return (
-    <div
-      className="login-screen"
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'var(--bg-main)',
-        padding: '1.5rem',
-      }}
-    >
-      <div
-        className="card login-card animate-fade-in"
-        style={{
-          width: '100%',
-          maxWidth: '430px',
-          padding: '2rem',
-          backgroundColor: 'var(--bg-card)',
-          borderColor: 'var(--border-card)',
-          boxShadow: 'var(--shadow-modal)',
-        }}
-      >
+    <div className="login-screen">
+      <div className="card login-card animate-fade-in register-card">
         {/* Brand Header */}
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <div
-            style={{
-              width: '44px',
-              height: '44px',
-              borderRadius: 'var(--radius-lg)',
-              background: 'linear-gradient(145deg, #d3835b 0%, #a9523e 100%)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#ffffff',
-              boxShadow: 'var(--shadow-glow)',
-              marginBottom: '0.75rem',
-            }}
-          >
+        <div className="login-brand register-brand">
+          <div className="login-logo">
             <GraduationCap size={28} />
           </div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.03em' }}>
-            Create your <span style={{ color: 'var(--accent-primary)' }}>StudentOS</span> account
+          <h1 className="login-title register-title">
+            Create your <span className="login-accent">StudentOS</span> account
           </h1>
-          <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>
+          <p className="login-subtitle register-subtitle">
             Start with a private workspace. Invite a team whenever you need one.
           </p>
         </div>
 
         {error && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.625rem',
-              padding: '0.75rem 1rem',
-              borderRadius: 'var(--radius-md)',
-              backgroundColor: 'rgba(239, 68, 68, 0.12)',
-              border: '1px solid rgba(239, 68, 68, 0.3)',
-              color: '#fca5a5',
-              fontSize: '0.875rem',
-              marginBottom: '1.5rem',
-            }}
-          >
+          <div className="login-error">
             <AlertCircle size={18} className="shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        <form onSubmit={handleSubmit} className="login-form">
           <div>
             <label className="label" htmlFor="fullName">
               Full Name
             </label>
-            <div style={{ position: 'relative' }}>
+            <div className="login-input-wrapper">
               <input
                 id="fullName"
                 type="text"
                 required
-                className="input"
+                className="input login-input"
                 placeholder="Alex Student"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                style={{ paddingLeft: '2.5rem' }}
               />
-              <User
-                size={16}
-                color="var(--text-dim)"
-                style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)' }}
-              />
+              <User size={16} className="login-input-icon" />
             </div>
           </div>
 
@@ -139,22 +88,17 @@ export const RegisterPage: React.FC = () => {
             <label className="label" htmlFor="email">
               Email address
             </label>
-            <div style={{ position: 'relative' }}>
+            <div className="login-input-wrapper">
               <input
                 id="email"
                 type="email"
                 required
-                className="input"
+                className="input login-input"
                 placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                style={{ paddingLeft: '2.5rem' }}
               />
-              <Mail
-                size={16}
-                color="var(--text-dim)"
-                style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)' }}
-              />
+              <Mail size={16} className="login-input-icon" />
             </div>
           </div>
 
@@ -162,23 +106,18 @@ export const RegisterPage: React.FC = () => {
             <label className="label" htmlFor="password">
               Password (min. 8 characters)
             </label>
-            <div style={{ position: 'relative' }}>
+            <div className="login-input-wrapper">
               <input
                 id="password"
                 type="password"
                 required
                 minLength={8}
-                className="input"
+                className="input login-input"
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                style={{ paddingLeft: '2.5rem' }}
               />
-              <Lock
-                size={16}
-                color="var(--text-dim)"
-                style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)' }}
-              />
+              <Lock size={16} className="login-input-icon" />
             </div>
           </div>
 
@@ -186,16 +125,16 @@ export const RegisterPage: React.FC = () => {
             type="submit"
             variant="primary"
             isLoading={isLoading}
-            style={{ width: '100%', marginTop: '0.5rem', padding: '0.75rem' }}
+            className="login-submit-btn"
           >
             Create Free Account <ArrowRight size={16} />
           </Button>
         </form>
 
-        <div style={{ textAlign: 'center', marginTop: '1.75rem', borderTop: '1px solid var(--border-subtle)', paddingTop: '1.25rem' }}>
-          <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+        <div className="login-footer">
+          <p className="login-footer-text">
             Already registered?{' '}
-            <Link to="/login" style={{ color: 'var(--accent-primary)', fontWeight: 600, textDecoration: 'none' }}>
+            <Link to="/login" className="login-footer-link">
               Sign in
             </Link>
           </p>

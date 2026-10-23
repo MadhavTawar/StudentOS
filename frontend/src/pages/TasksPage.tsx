@@ -452,7 +452,7 @@ export const TasksPage: React.FC = () => {
         title="Confirm Task Deletion"
         description="Are you sure you want to delete this task? This action cannot be undone."
       >
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.5rem' }}>
+        <div className="task-form-actions">
           <Button variant="outline" onClick={() => setDeletingTaskId(null)}>
             Cancel
           </Button>

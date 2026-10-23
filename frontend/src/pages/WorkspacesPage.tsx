@@ -97,7 +97,7 @@ export const WorkspacesPage: React.FC = () => {
       {error && <div className="card form-error" role="alert">{error}</div>}
       {notice && <div className="card form-success" role="status">{notice}</div>}
 
-      <section className="card" style={{ padding: '1.25rem' }}>
+      <section className="card workspace-card">
         <label className="label" htmlFor="workspace-select">Active workspace</label>
         <select
           id="workspace-select"
@@ -112,20 +112,20 @@ export const WorkspacesPage: React.FC = () => {
           ))}
         </select>
         {activeWorkspace && (
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginBottom: 0 }}>
+          <p className="workspace-role-info">
             Role: {activeWorkspace.role} · Plan: {activeWorkspace.plan_code}
           </p>
         )}
       </section>
 
-      <section className="card" style={{ padding: '1.25rem' }}>
-        <h2 style={{ marginTop: 0, fontSize: '1rem' }}>Create a shared workspace</h2>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.87rem' }}>
+      <section className="card workspace-card">
+        <h2 className="workspace-card-title">Create a shared workspace</h2>
+        <p className="workspace-card-description">
           Collaborators can access documents and references published to its shared library. Your coursework, Gmail, and reminders remain private.
         </p>
-        <form onSubmit={(event) => void createWorkspace(event)} style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap' }}>
+        <form onSubmit={(event) => void createWorkspace(event)} className="workspace-create-form">
           <input
-            className="input"
+            className="input workspace-name-input"
             aria-label="Shared workspace name"
             placeholder="e.g. Study group"
             value={name}
@@ -133,7 +133,6 @@ export const WorkspacesPage: React.FC = () => {
             minLength={2}
             maxLength={120}
             required
-            style={{ flex: '1 1 240px' }}
           />
           <button className="btn btn-primary" type="submit" disabled={isBusy}>
             <Plus size={16} /> Create workspace
@@ -143,19 +142,19 @@ export const WorkspacesPage: React.FC = () => {
 
       {activeWorkspace && !activeWorkspace.is_personal && (
         <>
-          <section className="card" style={{ padding: '1.25rem' }}>
-            <h2 style={{ marginTop: 0, fontSize: '1rem' }}>Invite collaborators</h2>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.87rem' }}>
+          <section className="card workspace-card">
+            <h2 className="workspace-card-title">Invite collaborators</h2>
+            <p className="workspace-card-description">
               The link is a bearer invite: anyone who has it can join once. It expires after seven days; email delivery is not configured.
             </p>
-            <form onSubmit={(event) => void createInvite(event)} style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap' }}>
+            <form onSubmit={(event) => void createInvite(event)} className="workspace-create-form">
               <button className="btn btn-primary" type="submit" disabled={isBusy || activeWorkspace.role === 'member'}>
                 <Users size={16} /> Generate one-time invite link
               </button>
             </form>
             {inviteUrl && (
-              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.85rem', flexWrap: 'wrap' }}>
-                <input className="input" readOnly value={inviteUrl} aria-label="Workspace invitation link" style={{ flex: '1 1 260px' }} />
+              <div className="workspace-invite-row">
+                <input className="input workspace-invite-input" readOnly value={inviteUrl} aria-label="Workspace invitation link" />
                 <button
                   type="button"
                   className="btn btn-outline"
@@ -171,13 +170,13 @@ export const WorkspacesPage: React.FC = () => {
             )}
           </section>
 
-          <section className="card" style={{ padding: '1.25rem' }}>
-            <h2 style={{ marginTop: 0, fontSize: '1rem' }}>Members</h2>
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+          <section className="card workspace-card">
+            <h2 className="workspace-card-title">Members</h2>
+            <ul className="workspace-members-list">
               {members.map((member) => (
-                <li key={member.user_id} style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', padding: '0.7rem 0', borderTop: '1px solid var(--border-card)' }}>
-                  <span><strong>{member.full_name}</strong><small style={{ display: 'block', color: 'var(--text-muted)' }}>{member.email}</small></span>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>{member.role}</span>
+                <li key={member.user_id} className="workspace-member-row">
+                  <span><strong>{member.full_name}</strong><small className="workspace-member-email">{member.email}</small></span>
+                  <span className="workspace-member-role">{member.role}</span>
                 </li>
               ))}
             </ul>
