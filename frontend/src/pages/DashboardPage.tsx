@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/useAuth';
 import { api } from '../lib/api';
-import { DashboardOverview } from '../types';
+import { DashboardOverview, Goal } from '../types';
 import { Button } from '../components/common/Button';
 import { PriorityBadge, StatusBadge } from '../components/common/Badge';
 import { EmptyState } from '../components/common/EmptyState';
@@ -27,6 +27,7 @@ export const DashboardPage: React.FC = () => {
   const [calendarMonth, setCalendarMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(() => new Date());
   const [data, setData] = useState<DashboardOverview | null>(null);
+  const [goals, setGoals] = useState<Goal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,8 +42,12 @@ export const DashboardPage: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const overview = await api.getDashboardOverview();
+      const [overview, goalList] = await Promise.all([
+        api.getDashboardOverview(),
+        api.listGoals(),
+      ]);
       setData(overview);
+      setGoals(goalList);
     } catch (err: any) {
       setError(err.message || 'Failed to load dashboard data.');
     } finally {
@@ -136,18 +141,30 @@ export const DashboardPage: React.FC = () => {
   const selectedDayTasks = data.pending_tasks.filter((task) => task.due_date && dateKey(new Date(task.due_date)) === selectedDateKey);
   const selectedDayDeadlines = data.upcoming_deadlines.filter((deadline) => dateKey(new Date(deadline.due_date)) === selectedDateKey);
 
-  const hourGroups = new Map<string, { label: string; tasks: any[] }>();
-  const anytimeTasks: any[] = [];
-  data.pending_tasks.forEach((task) => {
-    if (task.due_date) {
-      const d = new Date(task.due_date);
-      const key = String(d.getHours()).padStart(2, '0');
-      const label = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      if (!hourGroups.has(key)) hourGroups.set(key, { label, tasks: [] });
-      hourGroups.get(key)!.tasks.push(task);
-    } else {
-      anytimeTasks.push(task);
+  const todayKey = dateKey(currentDate);
+
+  const hourGroups = new Map<string, { label: string; items: any[] }>();
+  const anytimeItems: any[] = [];
+
+  const todayItems = [
+    ...data.pending_tasks.filter((t) => t.due_date && dateKey(new Date(t.due_date)) === todayKey),
+    ...data.upcoming_deadlines.filter((d) => dateKey(new Date(d.due_date)) === todayKey),
+  ];
+
+  todayItems.forEach((item) => {
+    if (!item.due_date) {
+      anytimeItems.push(item);
+      return;
     }
+    const d = new Date(item.due_date);
+    if (d.getHours() === 0 && d.getMinutes() === 0 && d.getSeconds() === 0 && d.getMilliseconds() === 0) {
+      anytimeItems.push(item);
+      return;
+    }
+    const key = String(d.getHours()).padStart(2, '0');
+    const label = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (!hourGroups.has(key)) hourGroups.set(key, { label, items: [] });
+    hourGroups.get(key)!.items.push(item);
   });
 
   const statTiles = [
@@ -231,57 +248,62 @@ export const DashboardPage: React.FC = () => {
               <Link to="/app/planner" className="dashboard-card-link">Open planner <ArrowRight size={13} /></Link>
             </div>
             <div className="dashboard-timeline">
-              {Array.from(hourGroups.entries()).map(([key, { label, tasks }]) => (
+              {Array.from(hourGroups.entries()).map(([key, { label, items }]) => (
                 <div key={key} className="dashboard-timeline-slot">
                   <span className="dashboard-timeline-time">{label}</span>
                   <div className="dashboard-timeline-items">
-                    {tasks.map((task) => (
-                      <div key={task.id} className="dashboard-timeline-item">
+                    {items.map((item) => (
+                      <div key={item.id} className="dashboard-timeline-item">
                         <input
                           type="checkbox"
-                          checked={task.status === 'Completed'}
-                          aria-label={`Complete ${task.title}`}
-                          onChange={() => handleToggleTask(task.id)}
+                          checked={item.status === 'Completed'}
+                          aria-label={`Complete ${item.title}`}
+                          onChange={() => handleToggleTask(item.id)}
                           className="dashboard-checkbox"
                         />
                         <div className="dashboard-timeline-item-body">
-                          <div className="dashboard-timeline-item-title">{task.title}</div>
-                          {task.due_date && (
+                          <div className="dashboard-timeline-item-title">{item.title}</div>
+                          {item.due_date && (
                             <div className="dashboard-timeline-item-meta">
-                              {new Date(task.due_date).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                              {new Date(item.due_date).toLocaleDateString([], { month: 'short', day: 'numeric' })}
                             </div>
                           )}
                         </div>
-                        <PriorityBadge priority={task.priority} />
+                        {item.priority && <PriorityBadge priority={item.priority} />}
                       </div>
                     ))}
                   </div>
                 </div>
               ))}
-              {anytimeTasks.length > 0 && (
+              {anytimeItems.length > 0 && (
                 <div className="dashboard-timeline-slot">
                   <span className="dashboard-timeline-time">Anytime</span>
                   <div className="dashboard-timeline-items">
-                    {anytimeTasks.map((task) => (
-                      <div key={task.id} className="dashboard-timeline-item">
+                    {anytimeItems.map((item) => (
+                      <div key={item.id} className="dashboard-timeline-item">
                         <input
                           type="checkbox"
-                          checked={task.status === 'Completed'}
-                          aria-label={`Complete ${task.title}`}
-                          onChange={() => handleToggleTask(task.id)}
+                          checked={item.status === 'Completed'}
+                          aria-label={`Complete ${item.title}`}
+                          onChange={() => handleToggleTask(item.id)}
                           className="dashboard-checkbox"
                         />
                         <div className="dashboard-timeline-item-body">
-                          <div className="dashboard-timeline-item-title">{task.title}</div>
+                          <div className="dashboard-timeline-item-title">{item.title}</div>
                         </div>
-                        <PriorityBadge priority={task.priority} />
+                        {item.priority && <PriorityBadge priority={item.priority} />}
                       </div>
                     ))}
                   </div>
                 </div>
               )}
-              {hourGroups.size === 0 && anytimeTasks.length === 0 && (
-                <div className="dashboard-timeline-empty">No tasks scheduled for today.</div>
+              {hourGroups.size === 0 && anytimeItems.length === 0 && (
+                <div className="dashboard-timeline-empty">
+                  Nothing due today.
+                  <Button variant="outline" size="sm" onClick={() => setIsQuickTaskOpen(true)} icon={<Plus size={14} />}>
+                    Add task
+                  </Button>
+                </div>
               )}
             </div>
           </section>
@@ -424,25 +446,42 @@ export const DashboardPage: React.FC = () => {
                 <div className="dashboard-card-icon"><CheckSquare size={18} /></div>
                 <h2 className="dashboard-card-title">Goals</h2>
               </div>
+              <Link to="/app/goals" className="dashboard-card-link">Manage goals <ArrowRight size={13} /></Link>
             </div>
-            {data.upcoming_deadlines.length === 0 && (
-              <div className="dashboard-goals-empty">Add goals from the Goals page to track progress here.</div>
-            )}
-            <div className="dashboard-goals-list">
-              {data.upcoming_deadlines.slice(0, 3).map((goal) => (
-                <div key={goal.id} className="dashboard-goal-row">
-                  <div className="dashboard-goal-info">
-                    <div className="dashboard-goal-title">{goal.title}</div>
-                    <div className="dashboard-goal-caption">{new Date(goal.due_date).toLocaleDateString([], { month: 'short', day: 'numeric' })}</div>
-                  </div>
-                  <div className="dashboard-goal-progress">
-                    <div className="dashboard-goal-track">
-                      <div className="dashboard-goal-bar" style={{ width: '40%' }} />
+            {goals.length === 0 ? (
+              <div className="dashboard-goals-empty">No goals yet. Create your first goal to track progress.</div>
+            ) : (
+              <div className="dashboard-goals-list">
+                {goals
+                  .filter((g) => g.status === 'Active')
+                  .slice(0, 3)
+                  .map((goal) => (
+                    <div key={goal.id} className="dashboard-goal-row">
+                      <div className="dashboard-goal-info">
+                        <div className="dashboard-goal-title">{goal.title}</div>
+                        <div className="dashboard-goal-caption">
+                          {goal.completed_milestones} of {goal.total_milestones} milestones
+                        </div>
+                      </div>
+                      <div className="dashboard-goal-progress">
+                        <div
+                          className="dashboard-goal-track"
+                          role="progressbar"
+                          aria-label={`${goal.title} progress`}
+                          aria-valuemin={0}
+                          aria-valuemax={100}
+                          aria-valuenow={goal.progress_percent}
+                        >
+                          <div
+                            className="dashboard-goal-bar"
+                            style={{ width: `${goal.progress_percent}%` }}
+                          />
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                  ))}
+              </div>
+            )}
           </section>
         </div>
       </div>

@@ -17,7 +17,6 @@ export const PlannerPage: React.FC = () => {
       <header className="card planner-header">
         <div className="planner-header-content">
           <div>
-            <div className="sidebar-section-label planner-kicker">ACADEMIC PLANNER</div>
             <h1 className="planner-title">Planner</h1>
           </div>
 

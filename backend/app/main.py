@@ -14,6 +14,12 @@ from backend.app.db.session import engine, Base
 from backend.app.db.migrations import migrate_legacy_knowledge_workspaces, migrate_ai_candidate_metadata
 from backend.app.api.v1.router import api_router
 from backend.app.services.reminder_service import start_reminder_scheduler_task
+from backend.app.services.knowledge_vector_store import warm_up_embedding_model
+
+
+async def _warm_up_embedding_model() -> None:
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, warm_up_embedding_model)
 
 
 class KnowledgeUploadLimitMiddleware:
@@ -106,6 +112,10 @@ async def lifespan(app: FastAPI):
     migrate_legacy_knowledge_workspaces(engine)
     migrate_ai_candidate_metadata(engine)
     logger.info("Database initialized successfully.")
+
+    # Warm up the embedding model in the background so the first upload
+    # does not pay the model download cost. Failures are logged, not raised.
+    asyncio.create_task(_warm_up_embedding_model())
 
     # Start background scheduler
     scheduler_task = asyncio.create_task(start_reminder_scheduler_task())
