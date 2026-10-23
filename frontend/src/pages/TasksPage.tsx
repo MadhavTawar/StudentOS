@@ -174,27 +174,21 @@ export const TasksPage: React.FC = () => {
       >
         <form onSubmit={handleSearchSubmit} className="task-search-form">
           <div className="task-search-field">
-            <input
-              type="text"
-              className="input"
-              placeholder="Search tasks by title..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{ paddingLeft: '2.25rem' }}
-              aria-label="Search tasks"
-            />
-            <Search
-              size={16}
-              color="var(--text-dim)"
-              style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)' }}
-            />
+              <input
+                type="text"
+                className="input task-search-input"
+                placeholder="Search tasks by title..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                aria-label="Search tasks"
+              />
+              <Search size={16} className="task-search-icon" />
           </div>
         </form>
 
         <div className="task-filters">
           <select
-            className="input"
-            style={{ width: 'auto', padding: '0.5rem 0.75rem' }}
+            className="input task-filter-select"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
@@ -206,8 +200,7 @@ export const TasksPage: React.FC = () => {
           </select>
 
           <select
-            className="input"
-            style={{ width: 'auto', padding: '0.5rem 0.75rem' }}
+            className="input task-filter-select"
             value={priorityFilter}
             onChange={(e) => setPriorityFilter(e.target.value)}
           >
@@ -219,8 +212,7 @@ export const TasksPage: React.FC = () => {
           </select>
 
           <select
-            className="input"
-            style={{ width: 'auto', padding: '0.5rem 0.75rem' }}
+            className="input task-filter-select"
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
           >
@@ -275,13 +267,7 @@ export const TasksPage: React.FC = () => {
                   type="checkbox"
                   checked={task.status === 'Completed'}
                   onChange={() => handleToggleTask(task)}
-                  style={{
-                    width: '20px',
-                    height: '20px',
-                    accentColor: 'var(--accent-primary)',
-                    cursor: 'pointer',
-                    marginTop: '3px',
-                  }}
+                  className="task-checkbox"
                 />
                 <div className="task-content">
                   <div className="task-title">
@@ -352,7 +338,7 @@ export const TasksPage: React.FC = () => {
         title={editingTask ? 'Edit Task' : 'Create New Academic Task'}
         description="Provide comprehensive details for your study schedule."
       >
-        <form onSubmit={handleSaveTask} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <form onSubmit={handleSaveTask} className="task-modal-form">
           <div>
             <label className="label" htmlFor="taskTitle">
               Task Title *
@@ -381,7 +367,7 @@ export const TasksPage: React.FC = () => {
             />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div className="task-form-grid">
             <div>
               <label className="label" htmlFor="taskCategory">
                 Category
@@ -418,7 +404,7 @@ export const TasksPage: React.FC = () => {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div className="task-form-grid">
             <div>
               <label className="label" htmlFor="taskDueDate">
                 Due Date & Time
@@ -448,7 +434,7 @@ export const TasksPage: React.FC = () => {
             </div>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem' }}>
+          <div className="task-form-actions">
             <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
               Cancel
             </Button>
