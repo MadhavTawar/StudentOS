@@ -366,7 +366,7 @@
 
 .assistant-composer:focus-within {
   border-color: #8fb79a;
-  box-shadow: 0 0 0 3px rgba(189, 101, 70, 0.09), 0 8px 22px rgba(47, 41, 30, 0.08);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.09), 0 8px 22px rgba(47, 41, 30, 0.08);
 }
 
 .assistant-composer textarea {

@@ -34,7 +34,7 @@
   place-items: center;
   color: #fff9ef;
   border-radius: 9px 9px 9px 3px;
-  background: linear-gradient(145deg, #d3835b, #a9523e);
+  background: linear-gradient(145deg, #2563EB, #1D4ED8);
 }
 
 .topbar-navigation {
@@ -117,7 +117,7 @@
   position: absolute;
   inset: 0 0 auto;
   height: 3px;
-  background: linear-gradient(90deg, #bd6546 0 24%, #d7b37a 24% 43%, transparent 43%);
+  background: linear-gradient(90deg, #2563EB 0 24%, #93C5FD 24% 43%, transparent 43%);
   content: '';
 }
 
@@ -202,7 +202,7 @@
   color: #fff9ef;
   border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 10px 10px 10px 3px;
-  background: linear-gradient(145deg, #d3835b, #a9523e);
+  background: linear-gradient(145deg, #2563EB, #1D4ED8);
   box-shadow: 0 5px 16px rgba(8, 17, 25, 0.2);
   transform: rotate(-3deg);
 }
@@ -1134,7 +1134,7 @@ main > section > h1 {
   inset: 0 auto auto 0;
   width: min(18vw, 220px);
   height: 2px;
-  background: linear-gradient(90deg, #bd6546, rgba(189, 101, 70, 0));
+  background: linear-gradient(90deg, #2563EB, rgba(37, 99, 235, 0));
   content: '';
   pointer-events: none;
 }
@@ -2605,7 +2605,7 @@ main > section > h1 {
   margin: 1.25rem 0;
   padding: 1rem;
   border-radius: var(--radius-md);
-  background: color-mix(in srgb, #d3835b 8%, transparent);
+  background: color-mix(in srgb, #2563EB 8%, transparent);
   color: var(--text-muted);
   line-height: 1.6;
 }
@@ -2721,7 +2721,7 @@ main > section > h1 {
   width: 44px;
   height: 44px;
   border-radius: var(--radius-lg);
-  background: linear-gradient(145deg, #d3835b 0%, #a9523e 100%);
+  background: linear-gradient(145deg, #2563EB 0%, #1D4ED8 100%);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3040,7 +3040,7 @@ main > section > h1 {
 
 .marketing-desk {
   padding: 1.5rem;
-  background: linear-gradient(145deg, var(--bg-card), rgba(211, 131, 91, 0.08));
+  background: linear-gradient(145deg, var(--bg-card), rgba(37, 99, 235, 0.08));
   border-color: var(--border-card);
   box-shadow: var(--shadow-modal);
 }
@@ -3067,7 +3067,7 @@ main > section > h1 {
 
 .marketing-desk-icon {
   color: var(--accent-primary);
-  background: rgba(211, 131, 91, 0.12);
+  background: rgba(37, 99, 235, 0.12);
   border-radius: 14px;
   padding: 11px;
 }
