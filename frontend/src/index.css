@@ -329,10 +329,6 @@ body {
   padding: 1.25rem;
 }
 
-.planner-kicker {
-  margin-bottom: 0.35rem;
-}
-
 .planner-switcher {
   display: inline-flex;
   gap: 0.35rem;
