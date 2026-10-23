@@ -164,7 +164,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onMenuClick, isMenuOpen = false,
               position: 'relative',
               borderRadius: 'var(--radius-full)',
               color: unreadCount > 0 ? 'var(--accent-primary)' : 'var(--text-muted)',
-              borderColor: unreadCount > 0 ? 'rgba(99, 102, 241, 0.4)' : 'var(--border-card)',
+              borderColor: unreadCount > 0 ? 'var(--accent-primary)' : 'var(--border-card)',
             }}
           >
             <Bell size={18} />
