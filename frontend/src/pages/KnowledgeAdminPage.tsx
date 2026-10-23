@@ -8,6 +8,9 @@ import './KnowledgeAdminPage.css';
 const errorText = (error: unknown) =>
   error instanceof Error ? error.message : 'Please check that the StudentOS service is available.';
 
+const isEmbeddingModelError = (message: string) =>
+  /embedding model|embedding|vector|index/i.test(message);
+
 export const KnowledgeAdminPage: React.FC = () => {
   const [access, setAccess] = useState<KnowledgeAccess | null>(null);
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
@@ -15,6 +18,7 @@ export const KnowledgeAdminPage: React.FC = () => {
   const [isBusy, setIsBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [uploadError, setUploadError] = useState('');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('General');
@@ -47,15 +51,35 @@ export const KnowledgeAdminPage: React.FC = () => {
     setIsBusy(true);
     setError('');
     setNotice('');
+    setUploadError('');
     try {
       await action();
       await refresh();
       setNotice(successMessage);
     } catch (actionError) {
-      setError(errorText(actionError));
+      const message = errorText(actionError);
+      setError(message);
+      if (isEmbeddingModelError(message)) {
+        setUploadError(`Document saved, but processing failed: ${message}. Try again once the embedding model is available.`);
+      }
     } finally {
       setIsBusy(false);
     }
+  };
+
+  const doUpload = async () => {
+    const form = new FormData();
+    form.append('file', file!);
+    form.append('title', title);
+    form.append('description', description);
+    form.append('category', category);
+    await api.uploadKnowledgeDocument(form);
+    setTitle('');
+    setDescription('');
+    setCategory('General');
+    setFile(null);
+    const input = document.getElementById('knowledge-upload-file') as HTMLInputElement | null;
+    if (input) input.value = '';
   };
 
   const submitUpload = async (event: FormEvent) => {
@@ -64,20 +88,7 @@ export const KnowledgeAdminPage: React.FC = () => {
       setError('Choose a PDF or DOCX file to upload.');
       return;
     }
-    await runAction(async () => {
-      const form = new FormData();
-      form.append('file', file);
-      form.append('title', title);
-      form.append('description', description);
-      form.append('category', category);
-      await api.uploadKnowledgeDocument(form);
-      setTitle('');
-      setDescription('');
-      setCategory('General');
-      setFile(null);
-      const input = document.getElementById('knowledge-upload-file') as HTMLInputElement | null;
-      if (input) input.value = '';
-    }, 'Document processed. Review its version below and publish it when ready.');
+    await runAction(doUpload, 'Document processed. Review its version below and publish it when ready.');
   };
 
   const uploadReplacement = (documentId: string, replacement: File) =>
@@ -133,6 +144,21 @@ export const KnowledgeAdminPage: React.FC = () => {
 
       {error && <div className="knowledge-admin-notice is-error" role="alert">{error}</div>}
       {notice && <div className="knowledge-admin-notice" role="status">{notice}</div>}
+      {uploadError && (
+        <div className="knowledge-admin-notice is-error" role="alert">
+          {uploadError}
+          <button
+            type="button"
+            className="knowledge-admin-retry"
+            onClick={() => {
+              setUploadError('');
+              void runAction(doUpload, 'Document processed. Review its version below and publish it when ready.');
+            }}
+          >
+            Retry upload
+          </button>
+        </div>
+      )}
 
       <div className="knowledge-admin-grid">
         <form className="knowledge-admin-panel knowledge-upload-form" onSubmit={(event) => void submitUpload(event)}>

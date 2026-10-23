@@ -105,4 +105,17 @@ Goals are managed through `/api/v1/goals/`. Adding a milestone creates a linked 
 - Keep `DATABASE_URL` pointed at a separate test database only if you add tests that do not use the existing in-memory test fixture.
 - New accounts receive a private workspace. Shared workspaces are created and managed from **Workspaces**. Invite links are one-time bearer credentials, expire after seven days, and are not emailed automatically. Share them only with trusted collaborators. See [the workspace knowledge guide](./KNOWLEDGE_BASE.md).
 - Source files and the persistent Chroma index default to `%USERPROFILE%\.studentos\knowledge` and `%USERPROFILE%\.studentos\chroma`. FastEmbed downloads the configured embedding model on first use; document text is embedded locally. Keep `AI_PROVIDER=offline` if workspace questions and source excerpts must not be sent to Groq.
+
+### Pre-download the embedding model (optional)
+
+The first knowledge document upload downloads `BAAI/bge-small-en-v1.5` (~100 MB) from Hugging Face, which can take ~40 seconds and may fail if network access is restricted. To avoid this delay:
+
+```powershell
+\.venv\Scripts\python.exe -c "from fastembed import TextEmbedding; TextEmbedding('BAAI/bge-small-en-v1.5')"
+```
+
+Run this once from the repository root with the backend virtual environment activated. The model is cached locally and reused on subsequent uploads.
+
+If the model is not available and cannot be downloaded, document uploads return `503 "The configured local embedding model is unavailable."`. The document record is still created but remains in `processing`/`failed` status until the model becomes available. Retry the upload after warming the model or confirming network access to Hugging Face.
+
 - The public landing page and workspace/subscription records are product foundations only. There is no email verification, password recovery, email delivery, payment provider, published pricing, or production hosting configuration yet.

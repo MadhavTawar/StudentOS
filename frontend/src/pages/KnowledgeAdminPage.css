@@ -329,6 +329,26 @@
   color: var(--accent-danger);
 }
 
+.knowledge-admin-retry {
+  background: transparent;
+  border: 1px solid var(--accent-primary);
+  border-radius: 0.45rem;
+  color: var(--accent-primary);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 0.67rem;
+  font-weight: 600;
+  gap: 0.25rem;
+  margin-left: 0.75rem;
+  padding: 0.35rem 0.6rem;
+}
+
+.knowledge-admin-retry:hover {
+  background: var(--accent-primary);
+  color: #ffffff;
+}
+
 .knowledge-staff-panel {
   margin-top: 0.1rem;
 }

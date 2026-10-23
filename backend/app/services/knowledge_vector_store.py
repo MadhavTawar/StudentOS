@@ -29,6 +29,20 @@ def _embedding_model(model_name: str):
         ) from exc
 
 
+def warm_up_embedding_model() -> None:
+    """Pre-load the embedding model so the first upload does not pay the download cost.
+
+    Safe to call during application startup; failures are logged, not raised.
+    """
+    try:
+        _embedding_model(settings.KNOWLEDGE_EMBEDDING_MODEL)
+        logger.info("Embedding model warmed up successfully: %s", settings.KNOWLEDGE_EMBEDDING_MODEL)
+    except HTTPException:
+        logger.warning("Embedding model warm-up failed; first upload will initialize it on demand.")
+    except Exception as exc:
+        logger.exception("Embedding model warm-up failed unexpectedly.")
+
+
 class KnowledgeVectorStore:
     def __init__(self) -> None:
         try:
