@@ -347,6 +347,10 @@ class ApiClient {
     return this.request<UserPreference>('/preferences/');
   }
 
+  async getAiProvider(): Promise<{ provider: string }> {
+    return this.request<{ provider: string }>('/ai/provider');
+  }
+
   async updatePreferences(updates: Partial<UserPreference>): Promise<UserPreference> {
     return this.request<UserPreference>('/preferences/', {
       method: 'PUT',
