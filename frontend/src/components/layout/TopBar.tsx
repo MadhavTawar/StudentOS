@@ -20,12 +20,12 @@ const primaryLinks = [
   { label: 'Planner', to: '/app/planner' },
   { label: 'Goals', to: '/app/goals' },
   { label: 'Inbox', to: '/app/inbox' },
-  { label: 'Library', to: '/app/knowledge' },
-  { label: 'Study guide', to: '/app/assistant' },
+  { label: 'Learn', to: '/app/learn' },
 ];
 
 const accountMenuItems = [
   { label: 'Reminders', to: '/app/reminders', icon: <Bell size={16} /> },
+  { label: 'Study guide', to: '/app/assistant', icon: <GraduationCap size={16} /> },
   { label: 'Study groups', to: '/app/workspaces', icon: <UserIcon size={16} /> },
   { label: 'Settings', to: '/app/settings', icon: <UserIcon size={16} /> },
   { label: 'Plan & billing', to: '/app/billing', icon: <UserIcon size={16} /> },

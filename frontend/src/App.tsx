@@ -37,9 +37,10 @@ export function App() {
             <Route path="tasks" element={<Navigate to="/app/planner?view=tasks" replace />} />
             <Route path="deadlines" element={<Navigate to="/app/planner?view=deadlines" replace />} />
             <Route path="inbox" element={<InboxPage />} />
-            <Route path="assistant" element={<AssistantPage />} />
-            <Route path="knowledge" element={<KnowledgePage />} />
+            <Route path="learn" element={<KnowledgePage />} />
+            <Route path="knowledge" element={<Navigate to="/app/learn" replace />} />
             <Route path="knowledge/manage" element={<KnowledgeAdminPage />} />
+            <Route path="assistant" element={<AssistantPage />} />
             <Route path="reminders" element={<RemindersPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="workspaces" element={<WorkspacesPage />} />
