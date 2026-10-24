@@ -9,7 +9,10 @@ export const PlannerPage: React.FC = () => {
   const view = searchParams.get('view') === 'deadlines' ? 'deadlines' : 'tasks';
 
   const setView = (nextView: 'tasks' | 'deadlines') => {
-    setSearchParams(nextView === 'tasks' ? { view: 'tasks' } : { view: 'deadlines' });
+    const params: Record<string, string> = { view: nextView };
+    const q = searchParams.get('q');
+    if (q) params.q = q;
+    setSearchParams(params);
   };
 
   return (

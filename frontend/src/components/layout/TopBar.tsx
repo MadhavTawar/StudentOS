@@ -175,7 +175,7 @@ export const TopBar: React.FC = () => {
           <Search size={16} className="topbar-search-icon" />
           <input
             className="input topbar-search-input"
-            placeholder="Search tasks, deadlines, notes…"
+            placeholder="Search tasks"
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
           />
