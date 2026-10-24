@@ -118,7 +118,27 @@ Run this once from the repository root with the backend virtual environment acti
 
 If the model is not available and cannot be downloaded, document uploads return `503 "The configured local embedding model is unavailable."`. The document record is still created but remains in `processing`/`failed` status until the model becomes available. Retry the upload after warming the model or confirming network access to Hugging Face.
 
-#### Disable embedding model warm-up (tests / offline environments)
+#### End-to-end tests (Playwright for Python)
+
+See `docs/testing.md` for the full guide. Quick start:
+
+```powershell
+# Terminal 1: backend
+$env:PYTHONPATH = "."
+uvicorn backend.app.main:app --port 8000
+
+# Terminal 2: frontend
+cd frontend
+npm run dev -- --host 127.0.0.1 --port 5173
+
+# Terminal 3: tests
+$env:RUN_E2E = "1"
+$env:E2E_BASE_URL = "http://127.0.0.1:5173"
+$env:E2E_API_URL = "http://127.0.0.1:8000"
+python -m pytest -o pythonpath=. -m e2e backend/app/tests/e2e
+```
+
+The E2E tests are skipped by default (no running servers). They register a fresh user, log in once, and exercise the smoke + XSS flows.
 
 By default the backend warms up the embedding model in the background during startup (`KNOWLEDGE_WARMUP_ENABLED=true`). To skip this — for example in test suites or air-gapped environments where HuggingFace is unreachable — set:
 
