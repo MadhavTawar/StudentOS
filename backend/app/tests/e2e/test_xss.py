@@ -1,9 +1,13 @@
 """XSS regression tests: user-controlled text must render as text, never as HTML."""
 import os
 import pytest
-import requests
-from playwright.sync_api import Page, expect
 
+try:
+    from playwright.sync_api import Page, expect
+except ImportError:
+    pytest.skip("playwright not installed", allow_module_level=True)
+
+import requests
 
 pytestmark = pytest.mark.e2e
 

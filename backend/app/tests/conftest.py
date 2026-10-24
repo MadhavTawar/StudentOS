@@ -7,6 +7,9 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from backend.app.core.config import settings
 
+def pytest_configure(config):
+    config.addinivalue_line("markers", "e2e: end-to-end browser tests (require running servers and playwright)")
+
 # Disable embedding model warm-up in tests so no network calls (e.g. to
 # HuggingFace) are made during the test suite. Must be set before the app
 # is imported so the lifespan skips the download.
