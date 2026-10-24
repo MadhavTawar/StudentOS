@@ -2,6 +2,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 from backend.app.api.deps import check_rate_limit, get_db, get_current_user
+from backend.app.core.config import settings
 from backend.app.models.user import User
 from backend.app.schemas.ai import (
     EmailExtractionRequest,
