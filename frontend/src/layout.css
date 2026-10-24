@@ -2276,7 +2276,7 @@ main > section > h1 {
   width: 100%;
   overflow: hidden;
   border-radius: var(--radius-full);
-  background: var(--bg-input);
+  background: var(--border-card);
   flex: 1;
   min-width: 0;
 }
@@ -2286,6 +2286,16 @@ main > section > h1 {
   border-radius: inherit;
   background: var(--accent-primary);
   transition: width 180ms ease;
+}
+
+.dashboard-goal-percent {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  white-space: nowrap;
+  min-width: 2.2rem;
+  text-align: right;
+  flex: 0 0 auto;
 }
 
 .dashboard-goals-empty,
