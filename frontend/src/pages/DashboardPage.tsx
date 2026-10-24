@@ -167,7 +167,7 @@ export const DashboardPage: React.FC = () => {
     ...data.upcoming_deadlines.filter((d) => dateKey(new Date(d.due_date)) === todayKey),
   ];
 
-  todayItems.forEach((item) => {
+  todayItems.forEach((item: any) => {
     if (!item.due_date) {
       anytimeItems.push(item);
       return;

@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { Link } from 'react-router-dom';
+import { writeUserFlag, clearLegacyFlag } from '../lib/userStorage';
+import { useAuth } from '../context/useAuth';
 import './AssistantPage.css';
 
 interface Message {
@@ -30,6 +32,7 @@ const quickPrompts = [
 const currentTime = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
 export const AssistantPage: React.FC = () => {
+  const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -41,8 +44,9 @@ export const AssistantPage: React.FC = () => {
   }, [messages, isLoading]);
 
   useEffect(() => {
-    try { localStorage.setItem('studentos_study_guide_visited', 'true'); } catch { /* ignore */ }
-  }, []);
+    writeUserFlag('studentos_study_guide_visited', user?.id, true);
+    clearLegacyFlag('studentos_study_guide_visited');
+  }, [user?.id]);
 
   const handleSendMessage = async (queryText = inputMessage) => {
     const textToSend = queryText.trim();
