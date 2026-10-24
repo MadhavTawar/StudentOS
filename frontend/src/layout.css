@@ -960,6 +960,20 @@ main > section > h1 {
   font-weight: 750;
 }
 
+.planner-calendar-day-view {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+}
+
+.planner-calendar-day-view .planner-calendar-day {
+  width: 100%;
+  justify-content: center;
+  min-height: auto;
+}
+
 .planner-selected-day {
   margin-top: 1rem;
   padding-top: 0.9rem;

@@ -30,6 +30,7 @@ export const TasksPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [taskView, setTaskView] = useState<'all' | 'today' | 'upcoming' | 'overdue' | 'completed'>('all');
   const sortBy = 'due_date';
   const [sortOrder, setSortOrder] = useState('asc');
 
@@ -60,13 +61,36 @@ export const TasksPage: React.FC = () => {
         sort_by: sortBy,
         sort_order: sortOrder,
       });
-      setTasks(data);
+      let filtered = data;
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+      if (taskView === 'today') {
+        filtered = data.filter((t) => {
+          if (!t.due_date || t.status === 'Completed') return false;
+          const d = new Date(t.due_date);
+          return d >= todayStart && d <= todayEnd;
+        });
+      } else if (taskView === 'upcoming') {
+        filtered = data.filter((t) => {
+          if (!t.due_date || t.status === 'Completed') return false;
+          return new Date(t.due_date) > todayEnd;
+        });
+      } else if (taskView === 'overdue') {
+        filtered = data.filter((t) => {
+          if (!t.due_date || t.status === 'Completed') return false;
+          return new Date(t.due_date) < todayStart;
+        });
+      } else if (taskView === 'completed') {
+        filtered = data.filter((t) => t.status === 'Completed');
+      }
+      setTasks(filtered);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch tasks.');
     } finally {
       setIsLoading(false);
     }
-  }, [statusFilter, priorityFilter, categoryFilter, search, sortBy, sortOrder]);
+  }, [statusFilter, priorityFilter, categoryFilter, search, sortBy, sortOrder, taskView]);
 
   useEffect(() => {
     void Promise.resolve().then(fetchTasks);
@@ -244,6 +268,46 @@ export const TasksPage: React.FC = () => {
             <ArrowUpDown size={14} />
             {sortOrder.toUpperCase()}
           </button>
+          <button
+            type="button"
+            className={`planner-view-btn ${taskView === 'all' ? 'is-active' : ''}`}
+            onClick={() => setTaskView('all')}
+            aria-label="All tasks view"
+          >
+            All
+          </button>
+          <button
+            type="button"
+            className={`planner-view-btn ${taskView === 'today' ? 'is-active' : ''}`}
+            onClick={() => setTaskView('today')}
+            aria-label="Today view"
+          >
+            Today
+          </button>
+          <button
+            type="button"
+            className={`planner-view-btn ${taskView === 'upcoming' ? 'is-active' : ''}`}
+            onClick={() => setTaskView('upcoming')}
+            aria-label="Upcoming tasks view"
+          >
+            Upcoming
+          </button>
+          <button
+            type="button"
+            className={`planner-view-btn ${taskView === 'overdue' ? 'is-active' : ''}`}
+            onClick={() => setTaskView('overdue')}
+            aria-label="Overdue tasks view"
+          >
+            Overdue
+          </button>
+          <button
+            type="button"
+            className={`planner-view-btn ${taskView === 'completed' ? 'is-active' : ''}`}
+            onClick={() => setTaskView('completed')}
+            aria-label="Completed tasks view"
+          >
+            Completed
+          </button>
         </div>
       </div>
 
@@ -286,7 +350,47 @@ export const TasksPage: React.FC = () => {
                   {task.description && (
                     <div className="task-description">
                       {task.description}
-                    </div>
+          <button
+            type="button"
+            className={`planner-view-btn ${taskView === 'all' ? 'is-active' : ''}`}
+            onClick={() => setTaskView('all')}
+            aria-label="All tasks view"
+          >
+            All
+          </button>
+          <button
+            type="button"
+            className={`planner-view-btn ${taskView === 'today' ? 'is-active' : ''}`}
+            onClick={() => setTaskView('today')}
+            aria-label="Today view"
+          >
+            Today
+          </button>
+          <button
+            type="button"
+            className={`planner-view-btn ${taskView === 'upcoming' ? 'is-active' : ''}`}
+            onClick={() => setTaskView('upcoming')}
+            aria-label="Upcoming tasks view"
+          >
+            Upcoming
+          </button>
+          <button
+            type="button"
+            className={`planner-view-btn ${taskView === 'overdue' ? 'is-active' : ''}`}
+            onClick={() => setTaskView('overdue')}
+            aria-label="Overdue tasks view"
+          >
+            Overdue
+          </button>
+          <button
+            type="button"
+            className={`planner-view-btn ${taskView === 'completed' ? 'is-active' : ''}`}
+            onClick={() => setTaskView('completed')}
+            aria-label="Completed tasks view"
+          >
+            Completed
+          </button>
+        </div>
                   )}
 
                   {/* Metadata Tags */}

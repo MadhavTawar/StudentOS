@@ -52,7 +52,7 @@ export const DeadlinesPage: React.FC = () => {
   const [calendarMonth, setCalendarMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [todayKey] = useState(() => localDateKey(new Date()));
-  const [viewMode, setViewMode] = useState<'month' | 'week'>('month');
+  const [viewMode, setViewMode] = useState<'month' | 'week' | 'day'>('month');
 
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiProposal, setAiProposal] = useState<string | null>(null);
@@ -331,6 +331,26 @@ export const DeadlinesPage: React.FC = () => {
           >
             Week
           </button>
+          <button
+            type="button"
+            className={`planner-view-btn ${viewMode === 'day' ? 'is-active' : ''}`}
+            onClick={() => setViewMode('day')}
+            aria-label="Day view"
+          >
+            Day
+          </button>
+          <button
+            type="button"
+            className="btn btn-outline btn-sm"
+            onClick={() => {
+              setCalendarMonth(new Date());
+              setSelectedDate(new Date());
+              setViewMode('day');
+            }}
+            aria-label="Today"
+          >
+            Today
+          </button>
         </div>
       </div>
 
@@ -355,35 +375,47 @@ export const DeadlinesPage: React.FC = () => {
             </div>
           </div>
           <div className="planner-calendar-grid" role="group" aria-label="Select a date">
-            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-              <span className="planner-calendar-weekday" key={day} aria-hidden="true">{day}</span>
-            ))}
-            {calendarCells.map((day) => {
-              const key = localDateKey(day);
-              const dayTasks = tasksByDay.get(key) ?? [];
-              const dayDeadlines = deadlinesByDay.get(key) ?? [];
-              const hasEvents = dayTasks.length + dayDeadlines.length > 0;
-              const pct = dayPercent(key);
-              return (
-                <button
-                  type="button"
-                  key={key}
-                  className={`planner-calendar-day${day.getMonth() === calendarMonth.getMonth() ? '' : ' is-outside'}${key === todayKey ? ' is-today' : ''}${key === selectedDateKey ? ' is-selected' : ''}${hasEvents ? ' has-events' : ''}`}
-                  aria-label={`${day.toLocaleDateString([], { month: 'long', day: 'numeric', year: 'numeric' })}${hasEvents ? `, ${dayTasks.length + dayDeadlines.length} scheduled items` : ''}`}
-                  aria-pressed={key === selectedDateKey}
-                  onClick={() => {
-                    setSelectedDate(day);
-                    if (day.getMonth() !== calendarMonth.getMonth()) setCalendarMonth(new Date(day.getFullYear(), day.getMonth(), 1));
-                  }}
-                >
-                  <span>{day.getDate()}</span>
-                  {hasEvents && <span className="planner-calendar-count">{dayTasks.length + dayDeadlines.length}</span>}
-                  <span className="planner-percent-bar">
-                    <span className="planner-percent-fill" style={{ width: `${pct}%` }} />
-                  </span>
-                </button>
-              );
-            })}
+            {viewMode === 'day' ? (
+              <div className="planner-calendar-day-view">
+                <span className="planner-calendar-weekday" aria-hidden="true">{selectedDate.toLocaleDateString([], { weekday: 'long' })}</span>
+                <div className="planner-calendar-day pl-selector-day is-selected">
+                  <span>{selectedDate.getDate()}</span>
+                  <span className="planner-calendar-count">{selectedItems.length}</span>
+                </div>
+              </div>
+            ) : (
+              <>
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+                  <span className="planner-calendar-weekday" key={day} aria-hidden="true">{day}</span>
+                ))}
+                {calendarCells.map((day) => {
+                  const key = localDateKey(day);
+                  const dayTasks = tasksByDay.get(key) ?? [];
+                  const dayDeadlines = deadlinesByDay.get(key) ?? [];
+                  const hasEvents = dayTasks.length + dayDeadlines.length > 0;
+                  const pct = dayPercent(key);
+                  return (
+                    <button
+                      type="button"
+                      key={key}
+                      className={`planner-calendar-day${day.getMonth() === calendarMonth.getMonth() ? '' : ' is-outside'}${key === todayKey ? ' is-today' : ''}${key === selectedDateKey ? ' is-selected' : ''}${hasEvents ? ' has-events' : ''}`}
+                      aria-label={`${day.toLocaleDateString([], { month: 'long', day: 'numeric', year: 'numeric' })}${hasEvents ? `, ${dayTasks.length + dayDeadlines.length} scheduled items` : ''}`}
+                      aria-pressed={key === selectedDateKey}
+                      onClick={() => {
+                        setSelectedDate(day);
+                        if (day.getMonth() !== calendarMonth.getMonth()) setCalendarMonth(new Date(day.getFullYear(), day.getMonth(), 1));
+                      }}
+                    >
+                      <span>{day.getDate()}</span>
+                      {hasEvents && <span className="planner-calendar-count">{dayTasks.length + dayDeadlines.length}</span>}
+                      <span className="planner-percent-bar">
+                        <span className="planner-percent-fill" style={{ width: `${pct}%` }} />
+                      </span>
+                    </button>
+                  );
+                })}
+              </>
+            )}
           </div>
           <div className="planner-selected-day">
             <div className="planner-selected-day-heading">
