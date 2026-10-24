@@ -294,6 +294,78 @@ def test_groq_provider_requires_api_key(client, auth_headers, monkeypatch):
     assert "requires GROQ_API_KEY" in response.json()["detail"]
 
 
+def test_groq_network_error_returns_503(client, auth_headers, monkeypatch):
+    from backend.app.core.config import settings
+    from backend.app.services import ai_service
+    import httpx
+
+    monkeypatch.setattr(settings, "AI_PROVIDER", "groq")
+    monkeypatch.setattr(settings, "GROQ_API_KEY", "test-key")
+    monkeypatch.setattr(settings, "GROQ_API_URL", "https://api.groq.example/openai/v1/chat/completions")
+
+    class _FakeResponse:
+        status_code = 503
+
+    class _FakeClient:
+        def __init__(self, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, traceback):
+            return None
+
+        async def post(self, *args, **kwargs):
+            raise httpx.ConnectError("network unreachable")
+
+    monkeypatch.setattr(ai_service.httpx, "AsyncClient", _FakeClient)
+    response = client.post(
+        "/api/v1/ai/assistant/chat",
+        json={"message": "What should I work on today?"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 503
+    assert "could not reach" in response.json()["detail"].lower() or "unreachable" in response.json()["detail"].lower()
+
+
+def test_groq_malformed_response_returns_502(client, auth_headers, monkeypatch):
+    from backend.app.core.config import settings
+    from backend.app.services import ai_service
+
+    monkeypatch.setattr(settings, "AI_PROVIDER", "groq")
+    monkeypatch.setattr(settings, "GROQ_API_KEY", "test-key")
+    monkeypatch.setattr(settings, "GROQ_API_URL", "https://api.groq.example/openai/v1/chat/completions")
+
+    class _FakeResponse:
+        status_code = 200
+
+        def json(self):
+            raise ValueError("not valid JSON")
+
+    class _FakeClient:
+        def __init__(self, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, traceback):
+            return None
+
+        async def post(self, *args, **kwargs):
+            return _FakeResponse()
+
+    monkeypatch.setattr(ai_service.httpx, "AsyncClient", _FakeClient)
+    response = client.post(
+        "/api/v1/ai/assistant/chat",
+        json={"message": "What should I work on today?"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 502
+    assert "invalid response" in response.json()["detail"].lower()
+
+
 def test_groq_does_not_send_injection_flagged_email_to_provider(
     client, auth_headers, monkeypatch
 ):

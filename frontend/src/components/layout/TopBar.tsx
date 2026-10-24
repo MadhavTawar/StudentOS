@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   Bell,
   ChevronDown,
@@ -34,6 +34,7 @@ const accountMenuItems = [
 export const TopBar: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const [notifications, setNotifications] = useState<InAppNotification[]>([]);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState(api.getWorkspaceId() ?? '');
@@ -95,7 +96,7 @@ export const TopBar: React.FC = () => {
   const handleWorkspaceChange = (workspaceId: string) => {
     setActiveWorkspaceId(workspaceId);
     api.setWorkspaceId(workspaceId);
-    navigate('/app/knowledge');
+    navigate('/app/learn');
     setIsAccountOpen(false);
   };
 
@@ -162,9 +163,13 @@ export const TopBar: React.FC = () => {
               to={link.to}
               end={link.end}
               onClick={closeMenus}
-              className={({ isActive }) =>
-                `topbar-nav-link${isActive ? ' is-active' : ''}`
-              }
+              className={({ isActive }) => {
+                const isLearnActive =
+                  isActive ||
+                  pathname.startsWith('/app/knowledge') ||
+                  pathname.startsWith('/app/assistant');
+                return `topbar-nav-link${isLearnActive ? ' is-active' : ''}`;
+              }}
             >
               {link.label}
             </NavLink>

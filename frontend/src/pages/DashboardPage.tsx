@@ -225,7 +225,7 @@ export const DashboardPage: React.FC = () => {
     if (canManage) {
       steps.push({ id: 'upload', title: 'Upload your notes', line: 'Publish PDFs or DOCX, then ask questions with sources.', done: knowledgeLibrary.length > 0, action: () => navigate('/app/knowledge/manage'), label: 'Upload' });
     } else {
-      steps.push({ id: 'asklib', title: 'Ask the Library', line: 'Explore published study material.', done: knowledgeLibrary.length > 0, action: () => navigate('/app/knowledge'), label: 'Open Library' });
+      steps.push({ id: 'asklib', title: 'Ask the Library', line: 'Explore published study material.', done: knowledgeLibrary.length > 0, action: () => navigate('/app/learn'), label: 'Open Library' });
     }
     steps.push({ id: 'guide', title: 'Try the Study guide', line: 'Ask the Study companion anything.', done: studyGuideVisited, action: () => navigate('/app/assistant'), label: 'Open guide' });
     steps.push({ id: 'gmail', title: 'Connect Gmail', line: 'Extract assignments from your inbox (optional).', done: gmailConnected, optional: true, action: () => navigate('/app/inbox'), label: 'Connect' });

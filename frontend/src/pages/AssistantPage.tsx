@@ -93,7 +93,7 @@ export const AssistantPage: React.FC = () => {
           </div>
         </div>
         <div className="assistant-topbar-actions">
-          <Link to="/app/knowledge" className="assistant-knowledge-link"><BookOpen size={15} /><span>Knowledge library</span></Link>
+          <Link to="/app/learn" className="assistant-knowledge-link"><BookOpen size={15} /><span>Knowledge library</span></Link>
           <button
             type="button"
             className="assistant-new-chat"

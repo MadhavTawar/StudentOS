@@ -1,5 +1,6 @@
 """Smoke tests for the public app."""
 import os
+import re
 import pytest
 
 try:
@@ -12,7 +13,7 @@ pytestmark = pytest.mark.e2e
 
 def test_landing_loads(page: Page, base_url):
     page.goto(base_url)
-    expect(page).to_have_title(lambda t: "StudentOS" in t or t != "")
+    expect(page).to_have_title(re.compile("StudentOS"))
 
 
 def test_login_page_renders(page: Page, base_url):

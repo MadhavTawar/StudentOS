@@ -8,7 +8,10 @@ import { LoadingSkeleton } from '../common/LoadingSkeleton';
 export const Layout: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
   const { pathname } = useLocation();
-  const isWorkspaceShell = pathname.startsWith('/app/knowledge') || pathname.startsWith('/app/assistant');
+  const isWorkspaceShell =
+    pathname.startsWith('/app/knowledge') ||
+    pathname.startsWith('/app/assistant') ||
+    pathname.startsWith('/app/learn');
 
   useEffect(() => {
     if (!isAuthenticated) {

@@ -1,0 +1,4 @@
+# Development dependencies (playwright E2E harness)
+# Pinned for reproducible installs
+playwright==1.64.1
+pytest-playwright==0.10.0

@@ -50,6 +50,6 @@ def test_task_title_with_html_renders_as_text(page: Page, base_url, api_url):
     # Visit dashboard and check the title renders as text (not executed)
     page.goto(base_url + "/app")
     # The title should appear as literal text somewhere on the page
-    expect(page.get_by_text(task_title, exact=False)).to_be_visible(timeout=15000)
+    expect(page.locator(".dashboard-task-title", has_text=task_title)).to_be_visible(timeout=15000)
     # Ensure no script tag was injected into the DOM
     assert page.locator("script:has-text('alert')").count() == 0

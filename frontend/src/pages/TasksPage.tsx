@@ -350,47 +350,7 @@ export const TasksPage: React.FC = () => {
                   {task.description && (
                     <div className="task-description">
                       {task.description}
-          <button
-            type="button"
-            className={`planner-view-btn ${taskView === 'all' ? 'is-active' : ''}`}
-            onClick={() => setTaskView('all')}
-            aria-label="All tasks view"
-          >
-            All
-          </button>
-          <button
-            type="button"
-            className={`planner-view-btn ${taskView === 'today' ? 'is-active' : ''}`}
-            onClick={() => setTaskView('today')}
-            aria-label="Today view"
-          >
-            Today
-          </button>
-          <button
-            type="button"
-            className={`planner-view-btn ${taskView === 'upcoming' ? 'is-active' : ''}`}
-            onClick={() => setTaskView('upcoming')}
-            aria-label="Upcoming tasks view"
-          >
-            Upcoming
-          </button>
-          <button
-            type="button"
-            className={`planner-view-btn ${taskView === 'overdue' ? 'is-active' : ''}`}
-            onClick={() => setTaskView('overdue')}
-            aria-label="Overdue tasks view"
-          >
-            Overdue
-          </button>
-          <button
-            type="button"
-            className={`planner-view-btn ${taskView === 'completed' ? 'is-active' : ''}`}
-            onClick={() => setTaskView('completed')}
-            aria-label="Completed tasks view"
-          >
-            Completed
-          </button>
-        </div>
+                    </div>
                   )}
 
                   {/* Metadata Tags */}
