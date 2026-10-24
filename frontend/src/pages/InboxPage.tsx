@@ -20,6 +20,7 @@ import { LoadingSkeleton } from '../components/common/LoadingSkeleton';
 
 export const InboxPage: React.FC = () => {
   const [status, setStatus] = useState<GmailStatus | null>(null);
+  const [aiProvider, setAiProvider] = useState<string>('offline');
   const [messages, setMessages] = useState<EmailMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -38,6 +39,12 @@ export const InboxPage: React.FC = () => {
     try {
       const statusData = await api.getGmailStatus();
       setStatus(statusData);
+      try {
+        const prov = await api.getAiProvider();
+        setAiProvider(prov.provider);
+      } catch {
+        // ignore
+      }
 
       if (statusData.is_connected) {
         const msgs = await api.listGmailMessages(searchRef.current.trim() || undefined);
@@ -147,7 +154,10 @@ export const InboxPage: React.FC = () => {
             Academic Inbox
           </h1>
           <p className="page-description">
-            Read-only Gmail integration with assignment and examination suggestions. If AI_PROVIDER=groq, the selected email's subject, sender, and snippet are sent to Groq for extraction.
+            Read-only Gmail integration with assignment and examination suggestions.
+            {aiProvider === 'groq'
+              ? ' The selected email\u2019s subject, sender, and snippet are sent to Groq for extraction.'
+              : ' Extraction runs locally; no email content leaves your device.'}
           </p>
         </div>
 

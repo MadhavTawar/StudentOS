@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     GROQ_MODEL: str = "openai/gpt-oss-20b"
     OPENAI_API_KEY: str = ""
     HUGGINGFACE_API_KEY: str = ""
+    GMAIL_FETCH_BODY_ON_EXTRACT: bool = False
 
     # Workspace knowledge documents (local storage and local Chroma embeddings)
     KNOWLEDGE_STORAGE_DIR: str = "~/.studentos/knowledge"

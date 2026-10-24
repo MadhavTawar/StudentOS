@@ -90,7 +90,9 @@ export const RemindersPage: React.FC = () => {
             Reminders & Alerts
           </h1>
           <p className="page-description">
-            Manage persistent in-app study reminders and automated deadline notifications.
+            Manage in-app reminders. StudentOS also sends automatic reminders
+            for tasks and deadlines at 3 days, 1 day, and 2 hours before their
+            due date, plus one notification when an item becomes overdue.
           </p>
         </div>
 

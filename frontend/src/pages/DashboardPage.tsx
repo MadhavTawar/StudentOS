@@ -320,8 +320,8 @@ export const DashboardPage: React.FC = () => {
             {data.pending_tasks.length === 0 ? (
               <EmptyState
                 icon={<CheckCircle2 size={24} />}
-                title="No active tasks"
-                description="You're all caught up! Use Add task to schedule new study tasks."
+                title="No active tasks yet"
+                description="Add your first task or connect Gmail to extract assignments automatically."
               />
             ) : (
               <div className="dashboard-task-table">
@@ -500,8 +500,8 @@ export const DashboardPage: React.FC = () => {
           {data.daily_priorities.length === 0 ? (
             <EmptyState
               icon={<CheckCircle2 size={24} />}
-              title="Your plan is clear"
-              description="Add a task or deadline when you know what you want to work on next."
+              title="Nothing tracked yet"
+              description="Add a task or connect Gmail to start building your study plan."
               action={<Button variant="outline" onClick={() => setIsQuickTaskOpen(true)} icon={<Plus size={15} />}>Add a task</Button>}
             />
           ) : (

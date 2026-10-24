@@ -61,6 +61,12 @@ def review_candidate(
     )
 
 
+@router.get("/provider")
+def get_ai_provider():
+    """Return the active AI provider name for frontend disclosure."""
+    return {"provider": settings.AI_PROVIDER}
+
+
 @router.post("/assistant/chat", response_model=AIAssistantResponse)
 async def chat_assistant(
     chat_in: AIAssistantMessageRequest,

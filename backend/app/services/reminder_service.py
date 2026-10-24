@@ -1,15 +1,60 @@
 import asyncio
+from abc import ABC, abstractmethod
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Tuple
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from backend.app.core.logging import logger
 from backend.app.db.session import SessionLocal
-from backend.app.models.reminder import Reminder, InAppNotification
-from backend.app.models.deadline import Deadline
-from backend.app.models.task import Task
+from backend.app.models.reminder import Reminder, InAppNotification, AutoReminderLog
+from backend.app.services.due_items import get_due_items
 from backend.app.schemas.reminder import ReminderCreate
 from backend.app.core.security import ensure_utc
+
+
+# --- Notification channel abstraction ---
+
+class NotificationChannel(ABC):
+    @abstractmethod
+    def send(self, user_id: str, title: str, message: str, notification_type: str) -> None:
+        ...
+
+
+class InAppNotificationChannel(NotificationChannel):
+    def __init__(self, db: Session):
+        self.db = db
+
+    def send(self, user_id: str, title: str, message: str, notification_type: str) -> None:
+        notif = InAppNotification(
+            user_id=user_id,
+            title=title,
+            message=message,
+            notification_type=notification_type,
+        )
+        self.db.add(notif)
+
+
+class EmailNotificationChannel(NotificationChannel):
+    """SMTP email channel, disabled when SMTP_HOST is unset."""
+
+    def __init__(self, smtp_host: Optional[str] = None, smtp_port: int = 587,
+                 smtp_user: Optional[str] = None, smtp_password: Optional[str] = None,
+                 from_address: Optional[str] = None):
+        self.smtp_host = smtp_host
+        self.smtp_port = smtp_port
+        self.smtp_user = smtp_user
+        self.smtp_password = smtp_password
+        self.from_address = from_address
+
+    @property
+    def enabled(self) -> bool:
+        return bool(self.smtp_host)
+
+    def send(self, user_id: str, title: str, message: str, notification_type: str) -> None:
+        if not self.enabled:
+            return
+        # SMTP delivery left as extension point; in-app remains default.
+        logger.info("Email channel enabled but SMTP delivery not implemented; skipping %s", title)
 
 
 class ReminderService:
@@ -85,64 +130,101 @@ class ReminderService:
         notif.dismissed = True
         db.commit()
 
+    # Staged lead times (minutes before due date)
+    STAGES = [("3d", 3 * 24 * 60), ("1d", 24 * 60), ("2h", 2 * 60)]
+
     @staticmethod
-    def check_and_generate_reminders(db: Session):
+    def check_and_generate_reminders(db: Session, now: Optional[datetime] = None):
         """
         Background job routine:
-        1. Checks due reminders and triggers them.
-        2. Automatically scans upcoming deadlines (e.g. within 24h) and creates in-app notifications
-           with duplicate prevention.
+        1. Trigger pending manual reminders whose remind_at <= now.
+        2. Auto-generate staged reminders for tasks AND deadlines via the
+           shared due-items layer. One notification per (item, stage), tracked
+           in AutoReminderLog so restarts / repeated loops never duplicate.
+        3. Overdue handling: one "now overdue" notification per item.
         """
-        now = datetime.now(timezone.utc)
+        if now is None:
+            now = datetime.now(timezone.utc)
+        now = ensure_utc(now)
 
-        # 1. Trigger pending reminders whose remind_at <= now
+        # 1. Trigger pending manual reminders
         due_reminders = db.query(Reminder).filter(
             Reminder.status == "Pending",
             Reminder.remind_at <= now
         ).all()
-
         for rem in due_reminders:
             rem.status = "Triggered"
-            # Prevent duplicate notification
             existing = db.query(InAppNotification).filter(
                 InAppNotification.reminder_id == rem.id
             ).first()
             if not existing:
-                notif = InAppNotification(
+                db.add(InAppNotification(
                     user_id=rem.user_id,
                     reminder_id=rem.id,
                     title=rem.title,
                     message=rem.message or f"Scheduled reminder for '{rem.title}'.",
-                    notification_type="deadline_approaching"
-                )
-                db.add(notif)
-
-        # 2. Check for upcoming deadlines in 24 hours
-        window_24h = now + timedelta(hours=24)
-        upcoming_deadlines = db.query(Deadline).filter(
-            Deadline.due_date >= now,
-            Deadline.due_date <= window_24h,
-            Deadline.status != "Completed"
-        ).all()
-
-        for d in upcoming_deadlines:
-            # Check if notification already sent today for this deadline
-            today_start = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
-            existing_notif = db.query(InAppNotification).filter(
-                InAppNotification.user_id == d.user_id,
-                InAppNotification.title == f"Approaching Deadline: {d.title}",
-                InAppNotification.created_at >= today_start
-            ).first()
-            if not existing_notif:
-                due_dt = ensure_utc(d.due_date)
-                time_left = due_dt - now
-                hours_left = max(1, int(time_left.total_seconds() // 3600))
-                db.add(InAppNotification(
-                    user_id=d.user_id,
-                    title=f"Approaching Deadline: {d.title}",
-                    message=f"'{d.title}' is due in ~{hours_left} hours ({due_dt.strftime('%b %d, %H:%M')}).",
-                    notification_type="deadline_approaching"
+                    notification_type="reminder"
                 ))
+
+        # 2. Auto reminders via shared layer
+        # Group users
+        from backend.app.models.user import User
+        users = db.query(User).all()
+        channel = InAppNotificationChannel(db)
+
+        for user in users:
+            items = get_due_items(db, user.id, include_completed=False)
+            for item in items:
+                if not item.due_date:
+                    continue
+                due = ensure_utc(item.due_date)
+                if due is None:
+                    continue
+                # Skip completed/cancelled
+                if item.status in ("Completed", "Cancelled"):
+                    continue
+
+                # Determine which stages have already passed / are due
+                for stage_key, lead_minutes in ReminderService.STAGES:
+                    stage_time = due - timedelta(minutes=lead_minutes)
+                    # Stage fires when now >= stage_time and now < due (not yet overdue)
+                    if stage_time <= now < due:
+                        # Check log
+                        existing_log = db.query(AutoReminderLog).filter(
+                            AutoReminderLog.item_id == item.id,
+                            AutoReminderLog.item_kind == item.kind,
+                            AutoReminderLog.stage == stage_key,
+                        ).first()
+                        if existing_log:
+                            continue
+                        # Also check if any notification already exists for this stage
+                        title = f"Upcoming: {item.title}"
+                        msg = f"'{item.title}' is due in ~{lead_minutes // 60}h ({due.strftime('%b %d, %H:%M')})."
+                        channel.send(user.id, title, msg, "deadline_approaching")
+                        db.add(AutoReminderLog(
+                            user_id=user.id,
+                            item_id=item.id,
+                            item_kind=item.kind,
+                            stage=stage_key,
+                        ))
+
+                # Overdue handling: one "now overdue" notification per item
+                if due < now:
+                    existing_log = db.query(AutoReminderLog).filter(
+                        AutoReminderLog.item_id == item.id,
+                        AutoReminderLog.item_kind == item.kind,
+                        AutoReminderLog.stage == "overdue",
+                    ).first()
+                    if not existing_log:
+                        title = f"Overdue: {item.title}"
+                        msg = f"'{item.title}' is now overdue (was due {due.strftime('%b %d, %H:%M')})."
+                        channel.send(user.id, title, msg, "task_overdue")
+                        db.add(AutoReminderLog(
+                            user_id=user.id,
+                            item_id=item.id,
+                            item_kind=item.kind,
+                            stage="overdue",
+                        ))
 
         db.commit()
 

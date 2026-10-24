@@ -50,6 +50,17 @@ class InAppNotification(Base):
     user = relationship("User", back_populates="notifications")
     reminder = relationship("Reminder", back_populates="notifications")
 
+class AutoReminderLog(Base):
+    """Tracks which (item, stage) auto-reminders have been sent to prevent duplicates."""
+    __tablename__ = "auto_reminder_logs"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    item_id = Column(String(36), nullable=False, index=True)
+    item_kind = Column(String(16), nullable=False)  # "task" or "deadline"
+    stage = Column(String(16), nullable=False)  # "3d", "1d", "2h", "overdue"
+    notified_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+
     __table_args__ = (
-        Index("idx_notif_user_read", "user_id", "is_read", "dismissed"),
+        Index("idx_auto_reminder_unique", "item_id", "item_kind", "stage", unique=True),
     )

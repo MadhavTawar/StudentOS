@@ -9,6 +9,7 @@ class EmailExtractionRequest(BaseModel):
     snippet: str = Field(..., max_length=5000)
     sender: str = Field(..., min_length=1, max_length=255)
     email_date: Optional[datetime] = None
+    timezone: Optional[str] = None
 
 
 class ExtractedTaskCandidate(BaseModel):
