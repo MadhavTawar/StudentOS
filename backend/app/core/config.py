@@ -54,6 +54,7 @@ class Settings(BaseSettings):
     KNOWLEDGE_CHUNK_OVERLAP: int = 160
     KNOWLEDGE_MAX_DISTANCE: float = 0.65
     KNOWLEDGE_EMBEDDING_MODEL: str = "BAAI/bge-small-en-v1.5"
+    KNOWLEDGE_WARMUP_ENABLED: bool = True
     
     # Rate Limiting & Safety
     LOGIN_MAX_ATTEMPTS: int = 5
