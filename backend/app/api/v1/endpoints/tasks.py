@@ -5,6 +5,7 @@ from backend.app.api.deps import get_db, get_current_user
 from backend.app.models.user import User
 from backend.app.schemas.task import TaskCreate, TaskUpdate, TaskResponse, TaskStats
 from backend.app.services.task_service import TaskService
+from backend.app.services.due_items import find_duplicate_task
 
 router = APIRouter()
 
@@ -35,6 +36,16 @@ def list_tasks(
         offset=offset
     )
     return tasks
+
+
+@router.post("/check-duplicate", status_code=status.HTTP_200_OK)
+def check_task_duplicate(
+    task_in: TaskCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    dup = find_duplicate_task(db, user_id=current_user.id, title=task_in.title, due_date=task_in.due_date)
+    return {"is_duplicate": dup is not None, "existing_id": dup.id if dup else None}
 
 
 @router.post("/", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
