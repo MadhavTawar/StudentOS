@@ -46,6 +46,18 @@ def get_dashboard_overview(
         if deadline.due_date and ensure_utc(deadline.due_date) <= now + timedelta(days=7)
     ][:5]
 
+    # Next big date: the soonest deadline beyond 7 days (for far-future exams)
+    next_big_date = None
+    all_upcoming, _ = DeadlineService.list_deadlines(
+        db,
+        user_id=current_user.id,
+        upcoming_only=True,
+        limit=100
+    )
+    far = [d for d in all_upcoming if d.due_date and ensure_utc(d.due_date) > now + timedelta(days=7)]
+    if far:
+        next_big_date = min(far, key=lambda d: ensure_utc(d.due_date))
+
     # 3. Pending/Active tasks
     pending_tasks, _ = TaskService.list_tasks(
         db,
@@ -99,6 +111,7 @@ def get_dashboard_overview(
         },
         "stats": task_stats.model_dump(),
         "upcoming_deadlines": [DeadlineResponse.model_validate(d).model_dump() for d in upcoming_deadlines],
+        "next_big_date": DeadlineResponse.model_validate(next_big_date).model_dump() if next_big_date else None,
         "pending_tasks": [TaskResponse.model_validate(t).model_dump() for t in pending_tasks],
         "daily_priorities": [
             {"task": TaskResponse.model_validate(task).model_dump(), "reason": reason}

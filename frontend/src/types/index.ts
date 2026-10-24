@@ -272,6 +272,7 @@ export interface DashboardOverview {
   };
   stats: TaskStats;
   upcoming_deadlines: Deadline[];
+  next_big_date?: Deadline | null;
   pending_tasks: Task[];
   daily_priorities: Array<{
     task: Task;

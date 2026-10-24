@@ -208,7 +208,7 @@ export const DashboardPage: React.FC = () => {
     {
       label: 'Completed tasks',
       value: completedCount,
-      caption: `${data.stats.pending + data.stats.in_progress} remaining`,
+      caption: `${data.stats.total - completedCount} remaining of ${data.stats.total}`,
       icon: <CheckCircle2 size={20} />,
       accent: 'var(--accent-success)',
     },
@@ -450,6 +450,13 @@ export const DashboardPage: React.FC = () => {
 
         {/* Right rail */}
         <div className="dashboard-right">
+          {data.next_big_date && (
+            <section className="card dashboard-card dashboard-next-big">
+              <div className="dashboard-next-big-label">Next big date</div>
+              <div className="dashboard-next-big-title">{data.next_big_date.title}</div>
+              <div className="dashboard-next-big-date">{new Date(data.next_big_date.due_date).toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</div>
+            </section>
+          )}
           <section className="card dashboard-card dashboard-calendar">
             <div className="dashboard-card-header">
               <div className="dashboard-card-title-row">
