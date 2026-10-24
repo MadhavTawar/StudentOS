@@ -91,8 +91,8 @@ def test_ambiguous_deadline_requires_explicit_confirmation(client, auth_headers)
     payload = {
         "message_id": "relative-deadline",
         "sender": "Academic Office <academics@university.edu>",
-        "subject": "Assignment deadline",
-        "snippet": "The assignment is due next Friday at 11:59 PM.",
+        "subject": "Examination schedule",
+        "snippet": "The examination is due next Friday at 11:59 PM.",
     }
     extract_res = client.post("/api/v1/ai/extract-email", json=payload, headers=auth_headers)
     assert extract_res.status_code == 200

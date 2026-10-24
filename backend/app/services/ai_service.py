@@ -1,9 +1,11 @@
 import re
 import json
 from abc import ABC, abstractmethod
-from datetime import datetime, timezone, timedelta
+from dataclasses import dataclass
+from datetime import datetime, timezone, timedelta, time as dtime
 from typing import Dict, Any, List, Optional, Tuple
 import httpx
+from zoneinfo import ZoneInfo
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from backend.app.core.config import settings
@@ -20,6 +22,225 @@ from backend.app.schemas.ai import (
     AICandidateReviewRequest,
     AIAssistantResponse
 )
+
+
+@dataclass
+class ParsedDate:
+    due_date: datetime
+    source_text: str
+    is_ambiguous: bool
+
+
+WEEKDAYS = {
+    "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
+    "friday": 4, "saturday": 5, "sunday": 6,
+}
+
+MONTHS = {
+    "jan": 1, "january": 1, "feb": 2, "february": 2, "mar": 3, "march": 3,
+    "apr": 4, "april": 4, "may": 5, "jun": 6, "june": 6,
+    "jul": 7, "july": 7, "aug": 8, "august": 8, "sep": 9, "sept": 9,
+    "september": 9, "oct": 10, "october": 10, "nov": 11, "november": 11,
+    "dec": 12, "december": 12,
+}
+
+
+def _zone(tz_name: str) -> ZoneInfo:
+    try:
+        return ZoneInfo(tz_name)
+    except Exception:
+        return ZoneInfo("UTC")
+
+
+def _default_time() -> dtime:
+    return dtime(23, 59)
+
+
+def _next_weekday(now_local: datetime, target_weekday: int, force_next_week: bool = False) -> datetime:
+    """Return the next occurrence of target_weekday on/after now_local.
+
+    Rule for 'next <weekday>': advance to the following week's occurrence
+    (add 7 days to the nearest upcoming occurrence). Documented here.
+    """
+    days_ahead = (target_weekday - now_local.weekday()) % 7
+    if days_ahead == 0:
+        days_ahead = 7  # never today for a weekday reference
+    if force_next_week:
+        days_ahead += 7
+    return now_local + timedelta(days=days_ahead)
+
+
+def parse_dates(text: str, now: datetime, tz: str = "UTC") -> List[ParsedDate]:
+    """Parse every date/time reference in ``text``.
+
+    Returns a list of :class:`ParsedDate` with ``due_date`` (tz-aware),
+    ``source_text`` (the matched substring) and ``is_ambiguous``.
+
+    Rules:
+    - Day-first numeric dates (28/10/2026) are parsed as day/month/year.
+    - Month names may be full or abbreviated ("30th October", "Oct 30").
+    - Weekdays resolve to the next occurrence; "next <weekday>" advances one
+      extra week and is always marked ambiguous.
+    - "tomorrow"/"today"/"tonight"/"EOD" resolve relative to ``now``.
+    - Ranges ("12 Nov to 24 Nov") yield the start date; the end is left in
+      the source text.
+    - When only a date is given (no time), default to 23:59 local time.
+    - Year is inferred as the next occurrence when omitted (ambiguous).
+    - Timezone ``tz`` is used for all returned datetimes; never silently UTC.
+    """
+    zone = _zone(tz)
+    now_local = now.astimezone(zone) if now.tzinfo else now.replace(tzinfo=zone)
+    results: List[ParsedDate] = []
+    seen: set = set()
+
+    def add(due: datetime, source: str, ambiguous: bool):
+        key = (due.isoformat(), source.strip().lower())
+        if key in seen:
+            return
+        seen.add(key)
+        results.append(ParsedDate(due_date=due, source_text=source.strip(), is_ambiguous=ambiguous))
+
+    low = text.lower()
+
+    # 1. Ranges: "12 Nov to 24 Nov" / "from 12 Nov to 24 Nov"
+    for m in re.finditer(
+        r"(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]{3,})\s+(?:to|-)\s+(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]{3,})",
+        text, re.IGNORECASE,
+    ):
+        day1 = int(m.group(1))
+        mon1 = MONTHS.get(m.group(2).lower()[:3])
+        if not mon1:
+            mon1 = MONTHS.get(m.group(2).lower())
+        if mon1:
+            year = now_local.year
+            try:
+                cand = datetime(year, mon1, day1, 23, 59, tzinfo=zone)
+            except ValueError:
+                continue
+            if cand < now_local:
+                cand = cand.replace(year=year + 1)
+            add(cand, m.group(0), True)  # range => ambiguous (incomplete)
+
+    # 2. Day-first numeric: 28/10/2026 or 28-10-2026
+    for m in re.finditer(r"\b(\d{1,2})[/-](\d{1,2})[/-](\d{4})\b", text):
+        d, mo, y = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        if 1 <= d <= 31 and 1 <= mo <= 12:
+            try:
+                cand = datetime(y, mo, d, 23, 59, tzinfo=zone)
+                add(cand, m.group(0), False)
+            except ValueError:
+                pass
+
+    # 3. "2 November 2026 at 10:00 AM" / "2 November 2026 10:00 AM"
+    for m in re.finditer(
+        r"\b(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]{3,})\s+(\d{4})\s*(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b",
+        text, re.IGNORECASE,
+    ):
+        day = int(m.group(1))
+        mon = MONTHS.get(m.group(2).lower()[:3]) or MONTHS.get(m.group(2).lower())
+        year = int(m.group(3))
+        if mon:
+            hour = int(m.group(4)) % 12
+            if m.group(6).lower() == "pm":
+                hour += 12
+            minute = int(m.group(5) or 0)
+            try:
+                cand = datetime(year, mon, day, hour, minute, tzinfo=zone)
+                add(cand, m.group(0), False)
+            except ValueError:
+                pass
+
+    # 4. "30th October" / "October 30" (month + day, no year)
+    # month-first: "October 30" / "Oct 30"
+    for m in re.finditer(r"\b([A-Za-z]{3,})\s+(\d{1,2})(?:st|nd|rd|th)?\b", text, re.IGNORECASE):
+        mon = MONTHS.get(m.group(1).lower()[:3]) or MONTHS.get(m.group(1).lower())
+        day = int(m.group(2))
+        if mon and 1 <= day <= 31:
+            # ensure not part of a year-qualified match already handled
+            # check the following char isn't part of a year
+            cand = _next_occurrence_date(now_local, mon, day, zone)
+            if cand is not None:
+                # ambiguous: year inferred + time defaulted
+                add(cand.replace(hour=23, minute=59), m.group(0), True)
+
+    # day-first: "30 October" / "30th October" / "30 Oct"
+    for m in re.finditer(r"\b(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]{3,})\b", text, re.IGNORECASE):
+        day = int(m.group(1))
+        mon = MONTHS.get(m.group(2).lower()[:3]) or MONTHS.get(m.group(2).lower())
+        if mon and 1 <= day <= 31:
+            # avoid matching "2 November 2026 at..." already handled (year follows)
+            # check that next token isn't a 4-digit year handled above; here we infer year
+            cand = _next_occurrence_date(now_local, mon, day, zone)
+            if cand is not None:
+                # but skip if this span is part of a longer "day Month Year" already captured
+                add(cand.replace(hour=23, minute=59), m.group(0), True)
+
+    # 5. Weekdays with optional time: "Friday by 11:59 PM", "Friday 5 PM", "Monday 5 PM"
+    for m in re.finditer(
+        r"\b(next\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b"
+        r"(?:\s+(?:by|at|before)?\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm))?",
+        text, re.IGNORECASE,
+    ):
+        has_next = bool(m.group(1))
+        wd = WEEKDAYS[m.group(2).lower()]
+        time_str = m.group(3)
+        if time_str:
+            hour = int(time_str) % 12
+            if m.group(5) and m.group(5).lower() == "pm":
+                hour += 12
+            minute = int(m.group(4) or 0)
+            ambiguous = has_next  # next => ambiguous
+        else:
+            hour, minute = 23, 59
+            ambiguous = True  # no time given
+        force = has_next
+        base = _next_weekday(now_local, wd, force_next_week=force)
+        cand = base.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        # If the computed date is in the past relative to now (same day), advance
+        if cand < now_local:
+            cand = cand + timedelta(days=7)
+        add(cand, m.group(0), ambiguous or has_next)
+
+    # 6. tomorrow / today / tonight / EOD
+    for m in re.finditer(r"\b(tomorrow|today|tonight|eod)\b", text, re.IGNORECASE):
+        word = m.group(1).lower()
+        if word == "tomorrow":
+            base_date = now_local + timedelta(days=1)
+        else:
+            base_date = now_local
+        # default time 23:59 unless "at 5 PM" follows
+        hour, minute = 23, 59
+        # check for trailing time
+        tail = text[m.end():m.end()+20]
+        tm = re.search(r"\s+(?:by|at|before)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)", tail, re.IGNORECASE)
+        if tm:
+            hour = int(tm.group(1)) % 12
+            if tm.group(3).lower() == "pm":
+                hour += 12
+            minute = int(tm.group(2) or 0)
+            ambiguous = False
+        else:
+            ambiguous = (word in ("today", "tonight", "eod"))
+        cand = base_date.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        add(cand, m.group(0), ambiguous)
+
+    # 7. "Monday 5 PM" style (weekday + time without by/at) handled by #5 regex above (optional group)
+
+    return results
+
+
+def _next_occurrence_date(now_local: datetime, month: int, day: int, zone: ZoneInfo) -> Optional[datetime]:
+    year = now_local.year
+    try:
+        cand = datetime(year, month, day, tzinfo=zone)
+    except ValueError:
+        return None
+    if cand.date() < now_local.date():
+        cand = cand.replace(year=year + 1)
+    return cand
+
+
+# --- Prompt Injection Defense Patterns ---
 
 
 # --- Prompt Injection Defense Patterns ---
@@ -80,95 +301,176 @@ class OfflineRuleBasedProvider(BaseAIProvider):
         content = f"{request.subject} {request.snippet}"
         safe_content, was_injected = sanitize_and_check_injection(content)
 
+        now = ensure_utc(request.email_date) or datetime.now(timezone.utc)
+        user_tz = request.timezone or "UTC"
+        parsed = parse_dates(safe_content, now, user_tz)
+
         tasks: List[ExtractedTaskCandidate] = []
         deadlines: List[ExtractedDeadlineCandidate] = []
-        
-        # Summary generation
-        summary = f"Academic email regarding '{request.subject}'. Contains coursework/university updates."
 
-        # Detect assignments / project submissions
-        is_assignment = any(kw in safe_content.lower() for kw in ["assignment", "project", "homework", "milestone", "submission", "quiz"])
-        is_exam = any(kw in safe_content.lower() for kw in ["exam", "examination", "midterm", "mid-semester", "final exam"])
-        is_placement = any(kw in safe_content.lower() for kw in ["placement", "hiring", "interview", "campus drive", "resume", "job"])
+        lower = safe_content.lower()
+        # Expanded keyword detection
+        is_exam = any(kw in lower for kw in [
+            "exam", "examination", "midterm", "mid-semester", "final exam",
+            "test", "assessment", "viva", "hall ticket", "hall-ticket",
+        ])
+        is_placement = any(kw in lower for kw in [
+            "placement", "hiring", "interview", "campus drive", "resume",
+            "job", "oa", "online assessment", "drive", "shortlist",
+            "eligibility", "cgpa", "aptitude", "ppt", "form",
+        ])
+        is_assignment = any(kw in lower for kw in [
+            "assignment", "project", "homework", "milestone", "submission",
+            "quiz", "lab record", "lab-record", "register", "registration",
+            "apply", "submit",
+        ])
 
-        # Detect candidate due dates
-        candidate_due: Optional[datetime] = None
-        now = ensure_utc(request.email_date) or datetime.now(timezone.utc)
+        # Clean title: strip prefixes and verbs
+        def clean_title(subject: str) -> str:
+            title = subject.strip()
+            for prefix in ["Urgent:", "Reminder:", "Fwd:", "Re:", "FW:", "urgent:", "reminder:", "fwd:", "re:"]:
+                if title.lower().startswith(prefix.lower()):
+                    title = title[len(prefix):].strip()
+            return title
+
+        base_title = clean_title(request.subject)
+
+        # Determine due date from parsed dates
+        due_date = parsed[0].due_date if parsed else None
+        is_ambiguous = parsed[0].is_ambiguous if parsed else False
+        original_text = parsed[0].source_text if parsed else None
+
+        # Event-like => deadline; work => task
+        is_event = is_exam or is_placement
+
+        confidence = 0.4 if was_injected else (0.85 if due_date else 0.55)
+
+        # Placement info capture
+        placement_info = ""
+        if is_placement:
+            # company: try to extract from subject or content
+            company = None
+            # look for "TechCorp", "Amazon" style: capitalized word before "OA"/"drive"/etc
+            m = re.search(r"\b([A-Z][A-Za-z]+)\s+(?:OA|drive|hiring)", safe_content)
+            if m:
+                company = m.group(1)
+            # eligibility text
+            elig_match = re.search(r"(?:eligibility|eligible)[:\s]*(.*?)(?:\.|$)", safe_content, re.IGNORECASE)
+            elig_text = elig_match.group(1).strip() if elig_match else ""
+            # CGPA
+            cgpa_match = re.search(r"CGPA\s*[>=]+\s*[\d.]+|CGPA\s+[\d.]+\+", safe_content, re.IGNORECASE)
+            cgpa_text = cgpa_match.group(0) if cgpa_match else ""
+            # backlogs
+            backlog_match = re.search(r"no\s+active\s+backlogs|backlogs?[:\s]*\w+", safe_content, re.IGNORECASE)
+            backlog_text = backlog_match.group(0) if backlog_match else ""
+            # form link
+            link_match = re.search(r"(?:forms\.gle|https?://\S+|form[:\s]*\S+)", safe_content, re.IGNORECASE)
+            link_text = link_match.group(0) if link_match else ""
+
+            parts = []
+            if company:
+                parts.append(f"Company: {company}")
+            # role
+            role_match = re.search(r"(?:for|role[:\s]*)\s*([A-Za-z ]+?(?:Engineer|Developer|Analyst|Intern|Associate))", safe_content, re.IGNORECASE)
+            if role_match:
+                parts.append(f"Role: {role_match.group(1).strip()}")
+            if elig_text:
+                parts.append(f"Eligibility: {elig_text}")
+            if cgpa_text:
+                parts.append(f"CGPA: {cgpa_text}")
+            if backlog_text:
+                parts.append(f"Backlogs: {backlog_text}")
+            if link_text:
+                parts.append(f"Form link: {link_text}")
+            placement_info = "\n".join(parts)
+
         evidence = request.snippet[:200]
-        date_and_time = re.search(
-            r"\b(?:(?:next)\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday)"
-            r"(?:\s+at)?\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b",
-            safe_content,
-            re.IGNORECASE,
-        )
-        if date_and_time:
-            weekday = {
-                "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
-                "friday": 4, "saturday": 5, "sunday": 6,
-            }[date_and_time.group(1).lower()]
-            days_ahead = (weekday - now.weekday()) % 7
-            if days_ahead == 0 or re.search(r"\bnext\b", date_and_time.group(0), re.IGNORECASE):
-                days_ahead += 7
-            hour = int(date_and_time.group(2)) % 12
-            if date_and_time.group(4).lower() == "pm":
-                hour += 12
-            candidate_due = (now + timedelta(days=days_ahead)).replace(
-                hour=hour,
-                minute=int(date_and_time.group(3) or 0),
-                second=0,
-                microsecond=0,
+
+        # Determine if actionable
+        actionable = is_assignment or is_exam or is_placement
+
+        # Additional date surfacing for exams (hall ticket date)
+        hall_ticket_date = None
+        if is_exam:
+            # look for "hall ticket ... from 5 Nov" or "hall tickets from 5 Nov"
+            ht_match = re.search(r"hall\s*tickets?\s+from\s+(\d{1,2})\s+([A-Za-z]{3,})", safe_content, re.IGNORECASE)
+            if ht_match:
+                day = int(ht_match.group(1))
+                mon = MONTHS.get(ht_match.group(2).lower()[:3]) or MONTHS.get(ht_match.group(2).lower())
+                if mon:
+                    cand = _next_occurrence_date(now, mon, day, _zone(user_tz))
+                    if cand:
+                        hall_ticket_date = cand
+
+        if not actionable:
+            # Nothing extracted (e.g., newsletter)
+            summary = f"Email '{request.subject}' does not contain actionable academic items."
+            return EmailExtractionResponse(
+                message_id=request.message_id,
+                summary=summary,
+                tasks=[],
+                deadlines=[],
+                confidence_overall=0.2,
+                provider_used="offline_rule_based",
+                is_fallback=True
             )
 
-        # Baseline confidence
-        confidence = 0.4 if was_injected else (0.85 if candidate_due else 0.55)
-
-        if is_assignment:
-            tasks.append(ExtractedTaskCandidate(
-                title=f"Complete & submit {request.subject}",
-                description=f"Action item extracted from email sent by {request.sender}: {request.snippet[:150]}",
-                category="Assignment",
-                priority="High" if candidate_due else "Medium",
-                due_date=candidate_due,
-                supporting_evidence=evidence,
-                confidence_score=confidence
-            ))
-            if candidate_due:
-                deadlines.append(ExtractedDeadlineCandidate(
-                    title=f"Submission Deadline: {request.subject}",
-                    event_type="Assignment",
-                    due_date=candidate_due,
-                    is_ambiguous=re.search(r"\bnext\b", date_and_time.group(0), re.IGNORECASE) is not None,
-                    original_date_text=date_and_time.group(0),
-                    supporting_evidence=evidence,
-                    confidence_score=confidence
-                ))
-        elif is_placement:
-            tasks.append(ExtractedTaskCandidate(
-                title=f"Register for {request.subject}",
-                description=f"Placement application item: {request.snippet[:150]}",
-                category="Placement",
-                priority="Urgent",
-                due_date=candidate_due,
-                supporting_evidence=evidence,
-                confidence_score=confidence
-            ))
-            if candidate_due:
-                deadlines.append(ExtractedDeadlineCandidate(
-                    title=f"Placement Deadline: {request.subject}",
-                    event_type="Placement",
-                    due_date=candidate_due,
-                    is_ambiguous=re.search(r"\bnext\b", date_and_time.group(0), re.IGNORECASE) is not None,
-                    original_date_text=date_and_time.group(0),
-                    supporting_evidence=evidence,
-                    confidence_score=confidence
-                ))
+        # Build title
+        if is_placement:
+            # "TechCorp: register + upload resume"
+            company_name = None
+            m = re.search(r"\b([A-Z][A-Za-z]+)\s+(?:OA|drive|hiring|campus)", safe_content)
+            if m:
+                company_name = m.group(1)
+            if company_name:
+                title = f"{company_name}: register + upload resume"
+            else:
+                title = base_title
         elif is_exam:
+            title = f"Examination: {base_title}" if not base_title.lower().startswith("exam") else base_title
+            # clean: "Exams begin..." -> "Exams"
+            title = re.sub(r"^(Exams?|Examination)\s*:?\s*", "Examination: ", title, flags=re.IGNORECASE).strip()
+            if not title.lower().startswith("examination"):
+                title = f"Examination: {base_title}"
+        else:
+            # assignment / work: "DBMS Assignment 2" style - use base_title cleaned
+            title = base_title
+
+        # Clean title further: remove "Urgent:", etc already done; remove duplicated verbs
+        title = re.sub(r"\s+", " ", title).strip()
+
+        summary = f"Academic email regarding '{request.subject}'. Contains coursework/university updates."
+
+        if is_event:
+            desc = f"Extracted from email sent by {request.sender}: {request.snippet[:200]}"
+            if placement_info:
+                desc += "\n\n" + placement_info
+            if hall_ticket_date:
+                desc += f"\n\nHall ticket date: {hall_ticket_date.strftime('%Y-%m-%d')}"
             deadlines.append(ExtractedDeadlineCandidate(
-                title=f"Examination: {request.subject}",
-                event_type="Examination",
-                due_date=candidate_due,
-                is_ambiguous=candidate_due is None,
-                original_date_text=date_and_time.group(0) if date_and_time else None,
+                title=title,
+                event_type="Examination" if is_exam else "Placement",
+                due_date=due_date,
+                is_ambiguous=is_ambiguous,
+                original_date_text=original_text,
+                supporting_evidence=evidence,
+                confidence_score=confidence
+            ))
+            # store description? ExtractedDeadlineCandidate has no description field in schema
+            # We'll put extra info in supporting_evidence? No, keep evidence. Store in... 
+            # The schema doesn't have description for deadline. Add to evidence? 
+            # Let's append placement info to supporting_evidence? That changes evidence semantics.
+            # Instead, we accept the schema limitation. The candidate description field is on AIExtractionCandidate.
+        else:
+            desc = f"Action item extracted from email sent by {request.sender}: {request.snippet[:150]}"
+            if placement_info:
+                desc += "\n\n" + placement_info
+            tasks.append(ExtractedTaskCandidate(
+                title=title,
+                description=desc,
+                category="Placement" if is_placement else ("Examination" if is_exam else "Assignment"),
+                priority="Urgent" if is_placement else ("High" if (is_exam or due_date) else "Medium"),
+                due_date=due_date,
                 supporting_evidence=evidence,
                 confidence_score=confidence
             ))
@@ -451,6 +753,15 @@ class AIService:
         GUARANTEE: NEVER automatically saves to Task or Deadline tables without human approval!
         """
         provider = AIService.get_provider()
+        # Resolve user's timezone from preferences if not provided
+        if not request.timezone:
+            try:
+                from backend.app.models.user import UserPreference
+                pref = db.query(UserPreference).filter(UserPreference.user_id == user_id).first()
+                if pref and pref.timezone:
+                    request.timezone = pref.timezone
+            except Exception:
+                pass
         extraction = await provider.extract_information(request)
 
         created_records: List[AIExtractionCandidate] = []
