@@ -554,7 +554,7 @@ body {
   height: 0.5rem;
   overflow: hidden;
   border-radius: var(--radius-full);
-  background: var(--bg-input);
+  background: var(--border-card);
 }
 
 .goal-progress-bar {
@@ -562,6 +562,16 @@ body {
   border-radius: inherit;
   background: var(--accent-primary);
   transition: width 180ms ease;
+}
+
+.goal-progress-percent {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  white-space: nowrap;
+  min-width: 2.2rem;
+  text-align: right;
+  flex: 0 0 auto;
 }
 
 .milestone-list {

@@ -6,6 +6,12 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from backend.app.core.config import settings
+
+# Disable embedding model warm-up in tests so no network calls (e.g. to
+# HuggingFace) are made during the test suite. Must be set before the app
+# is imported so the lifespan skips the download.
+settings.KNOWLEDGE_WARMUP_ENABLED = False
+
 from backend.app.db.session import Base, get_db
 from backend.app import main as main_module
 from backend.app.main import app

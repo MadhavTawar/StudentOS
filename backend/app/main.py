@@ -115,7 +115,11 @@ async def lifespan(app: FastAPI):
 
     # Warm up the embedding model in the background so the first upload
     # does not pay the model download cost. Failures are logged, not raised.
-    asyncio.create_task(_warm_up_embedding_model())
+    # Disabled when KNOWLEDGE_WARMUP_ENABLED is False (e.g. tests) to avoid
+    # touching the network.
+    warmup_task = None
+    if settings.KNOWLEDGE_WARMUP_ENABLED:
+        warmup_task = asyncio.create_task(_warm_up_embedding_model())
 
     # Start background scheduler
     scheduler_task = asyncio.create_task(start_reminder_scheduler_task())
@@ -130,6 +134,10 @@ async def lifespan(app: FastAPI):
         await scheduler_task
     except asyncio.CancelledError:
         pass
+    # Never wait on the warm-up task during shutdown: it must not block
+    # app exit when the model download hangs (e.g. HuggingFace blocked).
+    if warmup_task is not None:
+        warmup_task.cancel()
     logger.info("StudentOS service stopped cleanly.")
 
 

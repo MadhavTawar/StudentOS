@@ -118,4 +118,14 @@ Run this once from the repository root with the backend virtual environment acti
 
 If the model is not available and cannot be downloaded, document uploads return `503 "The configured local embedding model is unavailable."`. The document record is still created but remains in `processing`/`failed` status until the model becomes available. Retry the upload after warming the model or confirming network access to Hugging Face.
 
+#### Disable embedding model warm-up (tests / offline environments)
+
+By default the backend warms up the embedding model in the background during startup (`KNOWLEDGE_WARMUP_ENABLED=true`). To skip this — for example in test suites or air-gapped environments where HuggingFace is unreachable — set:
+
+```dotenv
+KNOWLEDGE_WARMUP_ENABLED=false
+```
+
+With warm-up disabled, the first upload will still attempt to initialize the model on demand (and fail gracefully with a clear error if the download is blocked).
+
 - The public landing page and workspace/subscription records are product foundations only. There is no email verification, password recovery, email delivery, payment provider, published pricing, or production hosting configuration yet.

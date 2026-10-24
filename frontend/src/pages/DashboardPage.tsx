@@ -477,6 +477,7 @@ export const DashboardPage: React.FC = () => {
                             style={{ width: `${goal.progress_percent}%` }}
                           />
                         </div>
+                        <span className="dashboard-goal-percent">{goal.progress_percent}%</span>
                       </div>
                     </div>
                   ))}
