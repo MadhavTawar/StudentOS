@@ -10,6 +10,7 @@ import {
   ArrowUpDown,
 } from 'lucide-react';
 import { api } from '../lib/api';
+import { useSearchParams } from 'react-router-dom';
 import { Task, TaskPriority, TaskStatus } from '../types';
 import { Button } from '../components/common/Button';
 import { PriorityBadge, CategoryBadge } from '../components/common/Badge';
@@ -24,7 +25,8 @@ export const TasksPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   // Filters
-  const [search, setSearch] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [search, setSearch] = useState(searchParams.get('q') || '');
   const [statusFilter, setStatusFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -177,9 +179,17 @@ export const TasksPage: React.FC = () => {
               <input
                 type="text"
                 className="input task-search-input"
-                placeholder="Search tasks by title..."
+                placeholder="Search tasks"
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setSearchParams((prev) => {
+                    const next = new URLSearchParams(prev);
+                    if (e.target.value) next.set('q', e.target.value);
+                    else next.delete('q');
+                    return next;
+                  }, { replace: true });
+                }}
                 aria-label="Search tasks"
               />
               <Search size={16} className="task-search-icon" />

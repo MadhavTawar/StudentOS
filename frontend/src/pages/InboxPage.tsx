@@ -20,7 +20,7 @@ import { LoadingSkeleton } from '../components/common/LoadingSkeleton';
 
 export const InboxPage: React.FC = () => {
   const [status, setStatus] = useState<GmailStatus | null>(null);
-  const [aiProvider, setAiProvider] = useState<string>('offline');
+  const [aiProvider, setAiProvider] = useState<string | null>(null);
   const [messages, setMessages] = useState<EmailMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -43,7 +43,7 @@ export const InboxPage: React.FC = () => {
         const prov = await api.getAiProvider();
         setAiProvider(prov.provider);
       } catch {
-        // ignore
+        setAiProvider(null);
       }
 
       if (statusData.is_connected) {
@@ -155,9 +155,11 @@ export const InboxPage: React.FC = () => {
           </h1>
           <p className="page-description">
             Read-only Gmail integration with assignment and examination suggestions.
-            {aiProvider === 'groq'
-              ? ' The selected email\u2019s subject, sender, and snippet are sent to Groq for extraction.'
-              : ' Extraction runs locally; no email content leaves your device.'}
+            {aiProvider === null
+              ? ' Could not confirm which AI provider is used for extraction.'
+              : aiProvider === 'groq'
+                ? ' The selected email\u2019s subject, sender, and snippet are sent to Groq for extraction.'
+                : ' Extraction runs locally; no email content leaves your device.'}
           </p>
         </div>
 

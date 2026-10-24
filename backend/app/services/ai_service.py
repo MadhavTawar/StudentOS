@@ -271,6 +271,24 @@ def sanitize_and_check_injection(text: str) -> Tuple[str, bool]:
 
 # --- Provider Abstraction ---
 
+def _human_date(iso: str, tz: str = "UTC") -> str:
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    try:
+        zone = ZoneInfo(tz)
+    except Exception:
+        zone = ZoneInfo("UTC")
+    try:
+        dt = datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return str(iso)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=zone)
+    else:
+        dt = dt.astimezone(zone)
+    return dt.strftime("%a %b %d, %I:%M %p")
+
+
 class BaseAIProvider(ABC):
     @abstractmethod
     async def extract_information(self, request: EmailExtractionRequest) -> EmailExtractionResponse:
@@ -564,7 +582,56 @@ class OfflineRuleBasedProvider(BaseAIProvider):
                     f"Default daily capacity is 4h. Adjust in Settings if needed.")
 
         elif "study plan" in lower_msg or "schedule" in lower_msg or "plan" in lower_msg:
-            return self._generate_study_plan_text(tasks)
+            # Find a matching task/deadline by title substring
+            all_items = tasks + user_context.get("deadlines", [])
+            matched = None
+            for it in all_items:
+                title = (it.get("title") or "").lower()
+                if title and (title in lower_msg or lower_msg in title):
+                    matched = it
+                    break
+            # fuzzy fallback
+            if matched is None:
+                for it in all_items:
+                    title = (it.get("title") or "").lower()
+                    if title and any(word in title for word in lower_msg.split() if len(word) > 3):
+                        matched = it
+                        break
+            if matched is None:
+                return ("I couldn't find a matching item for that study plan. "
+                        "Tell me which task or exam you mean (e.g. 'Make a study plan for my ITPM exam').")
+            due = matched.get("due_date")
+            if due:
+                from datetime import datetime, timezone, timedelta
+                try:
+                    due_dt = datetime.fromisoformat(str(due).replace("Z", "+00:00"))
+                except (ValueError, TypeError):
+                    due_dt = None
+                if due_dt:
+                    now = datetime.now(timezone.utc)
+                    if due_dt.tzinfo is None:
+                        due_dt = due_dt.replace(tzinfo=timezone.utc)
+                    days_left = (due_dt.date() - now.date()).days
+                    if days_left < 1:
+                        days_left = 1
+                    est = matched.get("estimated_duration") or 60
+                    per_day = max(30, est // days_left)
+                    lines = [f"### Study Plan for {matched.get('title')}",
+                             f"Due: {_human_date(due, user_context.get('timezone', 'UTC'))} ({days_left} days left)",
+                             ""]
+                    for i in range(min(days_left, 7)):
+                        day_date = (now + timedelta(days=i)).date()
+                        lines.append(f"- Day {i+1} ({day_date.strftime('%a %b %d')}): {per_day} min on {matched.get('title')}")
+                    related = [t for t in tasks if t.get("title", "").lower() != matched.get("title", "").lower()][:3]
+                    if related:
+                        lines.append("")
+                        lines.append("Related tasks:")
+                        for t in related:
+                            lines.append(f"- **{t.get('title')}** ({t.get('reason', '')})")
+                    return "\n".join(lines)
+            # no due date
+            return (f"**{matched.get('title')}** has no due date set. "
+                    "Set a due date first, then I can build a plan around it.")
 
         elif "break down" in lower_msg or "break it down" in lower_msg:
             # find the task
@@ -587,8 +654,12 @@ class OfflineRuleBasedProvider(BaseAIProvider):
             deadlines = user_context.get("deadlines", [])
             if not deadlines:
                 return "You have no upcoming deadlines recorded."
-            lines = "\n".join(f"- **{d.get('title')}**: due {d.get('due_date')}" for d in deadlines[:5])
-            return f"Your upcoming deadlines:\n{lines}"
+            lines = []
+            for d in deadlines[:5]:
+                due = d.get("due_date")
+                human = _human_date(due, user_context.get("timezone", "UTC")) if due else "no date"
+                lines.append(f"- **{d.get('title')}**: due {human}")
+            return "Your upcoming deadlines:\n" + "\n".join(lines)
 
         # Unknown -> helpful fallback
         return (
@@ -1046,6 +1117,15 @@ class AIService:
         from backend.app.services.due_items import get_due_items
         from backend.app.services.prioritization import rank_items
 
+        user_tz = "UTC"
+        try:
+            from backend.app.models.user import UserPreference
+            pref = db.query(UserPreference).filter(UserPreference.user_id == user_id).first()
+            if pref and pref.timezone:
+                user_tz = pref.timezone
+        except Exception:
+            pass
+
         due_items = get_due_items(db, user_id, include_completed=False)
         item_dicts = [
             {
@@ -1073,6 +1153,7 @@ class AIService:
             "tasks": tasks_ctx,
             "deadlines": deadlines_ctx,
             "ranked": [{"title": r.title, "reason": r.reason} for r in ranked[:10]],
+            "timezone": user_tz,
         }
 
         provider = AIService.get_provider()

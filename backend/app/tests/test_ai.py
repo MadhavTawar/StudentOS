@@ -322,7 +322,59 @@ def test_groq_does_not_send_injection_flagged_email_to_provider(
     assert response.status_code == 422
     assert "was not sent to Groq" in response.json()["detail"]
 
-def test_adversarial_prompt_injection_resistance(client, auth_headers):
+def test_ai_provider_endpoint_returns_configured_value(client, auth_headers, monkeypatch):
+    from backend.app.core.config import settings
+    monkeypatch.setattr(settings, "AI_PROVIDER", "offline")
+    res = client.get("/api/v1/ai/provider", headers=auth_headers)
+    assert res.status_code == 200
+    assert res.json() == {"provider": "offline"}
+
+    monkeypatch.setattr(settings, "AI_PROVIDER", "groq")
+    res2 = client.get("/api/v1/ai/provider", headers=auth_headers)
+    assert res2.status_code == 200
+    assert res2.json() == {"provider": "groq"}
+
+
+def test_study_plan_matched_item(client, auth_headers):
+    # Create a task with a due date
+    client.post("/api/v1/tasks/", json={
+        "title": "ITPM exam preparation",
+        "priority": "High",
+        "due_date": "2026-10-30T10:00:00Z",
+        "estimated_duration": 120,
+    }, headers=auth_headers)
+    res = client.post("/api/v1/ai/assistant/chat", json={
+        "message": "Make a study plan for my ITPM exam",
+    }, headers=auth_headers)
+    assert res.status_code == 200
+    reply = res.json()["reply"]
+    assert "ITPM" in reply
+    assert "Due:" in reply
+
+
+def test_study_plan_no_match(client, auth_headers):
+    res = client.post("/api/v1/ai/assistant/chat", json={
+        "message": "Make a study plan for my quantum physics exam",
+    }, headers=auth_headers)
+    assert res.status_code == 200
+    reply = res.json()["reply"]
+    assert "couldn't find" in reply.lower() or "which" in reply.lower()
+
+
+def test_upcoming_deadlines_human_date(client, auth_headers):
+    client.post("/api/v1/deadlines/", json={
+        "title": "ITPM exam",
+        "event_type": "Examination",
+        "due_date": "2026-10-29T12:47:47Z",
+    }, headers=auth_headers)
+    res = client.post("/api/v1/ai/assistant/chat", json={
+        "message": "upcoming deadlines",
+    }, headers=auth_headers)
+    assert res.status_code == 200
+    reply = res.json()["reply"]
+    assert "T" not in reply or "due" in reply.lower()
+    # Should contain human format like "Thu Oct 29"
+    assert "Oct" in reply or "Oct" in reply
     # Test adversarial email trying to override instructions and steal keys
     malicious_email = {
         "message_id": "malicious_msg_1",
