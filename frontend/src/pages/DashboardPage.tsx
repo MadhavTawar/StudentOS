@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Calendar,
   Clock,
@@ -23,11 +23,18 @@ import { Modal } from '../components/common/Modal';
 
 export const DashboardPage: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [currentDate] = useState(() => new Date());
   const [calendarMonth, setCalendarMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(() => new Date());
   const [data, setData] = useState<DashboardOverview | null>(null);
   const [goals, setGoals] = useState<Goal[]>([]);
+  const [deadlines, setDeadlines] = useState<any[]>([]);
+  const [knowledgeLibrary, setKnowledgeLibrary] = useState<any[]>([]);
+  const [knowledgeAccess, setKnowledgeAccess] = useState<any>(null);
+  const [gmailConnected, setGmailConnected] = useState(false);
+  const [studyGuideVisited] = useState(() => { try { return localStorage.getItem('studentos_study_guide_visited') === 'true'; } catch { return false; } });
+  const [getStartedDismissed, setGetStartedDismissed] = useState(() => { try { return localStorage.getItem('studentos_get_started_dismissed') === 'true'; } catch { return false; } });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,12 +49,21 @@ export const DashboardPage: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const [overview, goalList] = await Promise.all([
+      const [overviewRes, goalsRes, deadlinesRes, libraryRes, accessRes, gmailRes] = await Promise.allSettled([
         api.getDashboardOverview(),
         api.listGoals(),
+        api.listDeadlines({}),
+        api.listKnowledgeLibrary(),
+        api.getKnowledgeAccess(),
+        api.getGmailStatus(),
       ]);
-      setData(overview);
-      setGoals(goalList);
+      if (overviewRes.status === 'fulfilled') setData(overviewRes.value);
+      else setError(overviewRes.reason?.message || 'Failed to load dashboard data.');
+      if (goalsRes.status === 'fulfilled') setGoals(goalsRes.value);
+      if (deadlinesRes.status === 'fulfilled') setDeadlines(deadlinesRes.value);
+      if (libraryRes.status === 'fulfilled') setKnowledgeLibrary(libraryRes.value);
+      if (accessRes.status === 'fulfilled') setKnowledgeAccess(accessRes.value);
+      if (gmailRes.status === 'fulfilled') setGmailConnected(!!gmailRes.value?.is_connected);
     } catch (err: any) {
       setError(err.message || 'Failed to load dashboard data.');
     } finally {
@@ -198,8 +214,79 @@ export const DashboardPage: React.FC = () => {
     },
   ];
 
+  function buildGetStartedCard() {
+    if (getStartedDismissed) return null;
+    const canManage = !!knowledgeAccess?.can_manage_documents;
+    const steps: { id: string; title: string; line: string; done: boolean; optional?: boolean; action: () => void; label: string }[] = [
+      { id: 'task', title: 'Add your first task', line: 'Track coursework, assignments, and study sessions.', done: (data?.stats?.total ?? 0) > 0, action: () => setIsQuickTaskOpen(true), label: 'Add task' },
+      { id: 'deadline', title: 'Add an exam or deadline', line: 'Never miss a due date again.', done: deadlines.length > 0, action: () => navigate('/app/planner?view=deadlines'), label: 'Add deadline' },
+      { id: 'goal', title: 'Set a goal', line: 'Break big outcomes into milestones.', done: goals.length > 0, action: () => navigate('/app/goals'), label: 'Set goal' },
+    ];
+    if (canManage) {
+      steps.push({ id: 'upload', title: 'Upload your notes', line: 'Publish PDFs or DOCX, then ask questions with sources.', done: knowledgeLibrary.length > 0, action: () => navigate('/app/knowledge/manage'), label: 'Upload' });
+    } else {
+      steps.push({ id: 'asklib', title: 'Ask the Library', line: 'Explore published study material.', done: knowledgeLibrary.length > 0, action: () => navigate('/app/knowledge'), label: 'Open Library' });
+    }
+    steps.push({ id: 'guide', title: 'Try the Study guide', line: 'Ask the Study companion anything.', done: studyGuideVisited, action: () => navigate('/app/assistant'), label: 'Open guide' });
+    steps.push({ id: 'gmail', title: 'Connect Gmail', line: 'Extract assignments from your inbox (optional).', done: gmailConnected, optional: true, action: () => navigate('/app/inbox'), label: 'Connect' });
+
+    const requiredSteps = steps.filter((s) => !s.optional);
+    const doneCount = steps.filter((s) => s.done).length;
+    const allRequiredDone = requiredSteps.every((s) => s.done);
+
+    const safeSet = (key: string, value: string) => { try { localStorage.setItem(key, value); } catch { } };
+
+    if (allRequiredDone && doneCount === steps.length) {
+      return (
+        <div className="dashboard-getstarted dashboard-getstarted-done">
+          <p className="dashboard-getstarted-done-text">You are all set. Dismiss to hide this message.</p>
+          <button type="button" className="dashboard-getstarted-dismiss" onClick={() => { setGetStartedDismissed(true); safeSet('studentos_get_started_dismissed', 'true'); }}>Dismiss</button>
+        </div>
+      );
+    }
+
+    return (
+      <section className="card dashboard-getstarted" aria-label="Get started">
+        <div className="dashboard-getstarted-header">
+          <div>
+            <h2 className="dashboard-getstarted-title">Get started</h2>
+            <p className="dashboard-getstarted-subtitle">Complete these steps to set up your study space.</p>
+          </div>
+          <button type="button" className="dashboard-getstarted-dismiss" onClick={() => { setGetStartedDismissed(true); safeSet('studentos_get_started_dismissed', 'true'); }} aria-label="Dismiss get started card">Dismiss</button>
+        </div>
+        <div className="dashboard-getstarted-progress" role="progressbar" aria-label="Get started progress" aria-valuemin={0} aria-valuemax={steps.length} aria-valuenow={doneCount}>
+          <div className="dashboard-getstarted-progress-track">
+            <div className="dashboard-getstarted-progress-fill" style={{ width: (doneCount / steps.length) * 100 + '%' }} />
+          </div>
+          <span className="dashboard-getstarted-progress-text">{doneCount} of {steps.length} done</span>
+        </div>
+        <ul className="dashboard-getstarted-steps">
+          {steps.map((step) => (
+            <li key={step.id} className={'dashboard-getstarted-step' + (step.done ? ' is-done' : '') + (step.optional ? ' is-optional' : '')}>
+              <span className="dashboard-getstarted-check" aria-hidden="true">{step.done ? '\u2713' : ''}</span>
+              <div className="dashboard-getstarted-step-body">
+                <div className="dashboard-getstarted-step-title">
+                  {step.title}
+                  {step.optional && <span className="dashboard-getstarted-optional">Optional</span>}
+                </div>
+                <div className="dashboard-getstarted-step-line">{step.line}</div>
+              </div>
+              {!step.done && (
+                <Button variant="outline" size="sm" onClick={step.action}>{step.label}</Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      </section>
+    );
+  }
+
+  const getStartedCard = buildGetStartedCard();
+
   return (
     <div className="dashboard-page">
+      {getStartedCard}
+
       {/* Greeting header */}
       <header className="dashboard-masthead">
         <div className="dashboard-welcome">
@@ -321,7 +408,7 @@ export const DashboardPage: React.FC = () => {
               <EmptyState
                 icon={<CheckCircle2 size={24} />}
                 title="No active tasks yet"
-                description="Add your first task or connect Gmail to extract assignments automatically."
+                description="Add your first task to get started."
               />
             ) : (
               <div className="dashboard-task-table">

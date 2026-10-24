@@ -151,7 +151,7 @@ export const KnowledgePage: React.FC = () => {
         <h1>Knowledge library</h1>
         <p>Ask questions about published workspace resources and check every answer against its sources.</p>
         {access?.can_manage_documents && (
-          <Link to="/app/knowledge/manage" className="knowledge-manage-link">
+          <Link to="/app/knowledge/manage" className="btn btn-outline knowledge-manage-link">
             Manage library
           </Link>
         )}
@@ -179,7 +179,14 @@ export const KnowledgePage: React.FC = () => {
           {isLoadingLibrary ? (
             <p className="knowledge-library-empty">Loading the published library…</p>
           ) : library.length === 0 ? (
-            <p className="knowledge-library-empty">No workspace references have been published yet.</p>
+            access?.can_manage_documents ? (
+              <div className="knowledge-library-empty">
+                <p>Upload your notes or course PDFs, publish them, then ask questions with sources.</p>
+                <Link to="/app/knowledge/manage" className="btn btn-primary knowledge-upload-cta">Upload your first document</Link>
+              </div>
+            ) : (
+              <p className="knowledge-library-empty">Nothing has been published in this workspace yet. Ask the workspace owner to add study material.</p>
+            )
           ) : (
             <>
               {documentsByCategory.map(([category, items]) => (

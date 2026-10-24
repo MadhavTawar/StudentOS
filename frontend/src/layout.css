@@ -1696,7 +1696,165 @@ main > section > h1 {
   }
 }
 
-/* ===== Dashboard (Phase 2) ===== */
+.dashboard-getstarted {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.25rem;
+}
+
+.dashboard-getstarted-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.dashboard-getstarted-title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.dashboard-getstarted-subtitle {
+  margin: 0.25rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.dashboard-getstarted-dismiss {
+  background: transparent;
+  border: 1px solid var(--border-card);
+  border-radius: 0.45rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.35rem 0.6rem;
+}
+
+.dashboard-getstarted-dismiss:hover {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+.dashboard-getstarted-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.dashboard-getstarted-progress-track {
+  flex: 1;
+  height: 0.5rem;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--border-card);
+}
+
+.dashboard-getstarted-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent-primary);
+  transition: width 180ms ease;
+}
+
+.dashboard-getstarted-progress-text {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.dashboard-getstarted-steps {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.dashboard-getstarted-step {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--border-card);
+  border-radius: 0.5rem;
+  background: var(--bg-input);
+}
+
+.dashboard-getstarted-step.is-done {
+  opacity: 0.6;
+}
+
+.dashboard-getstarted-check {
+  display: grid;
+  width: 1.25rem;
+  height: 1.25rem;
+  place-items: center;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-card);
+  color: var(--accent-success);
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+
+.dashboard-getstarted-step.is-done .dashboard-getstarted-check {
+  background: var(--accent-success);
+  border-color: var(--accent-success);
+  color: #ffffff;
+}
+
+.dashboard-getstarted-step-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.dashboard-getstarted-step-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dashboard-getstarted-optional {
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 0.25rem;
+  padding: 0.1rem 0.35rem;
+}
+
+.dashboard-getstarted-step-line {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.125rem;
+}
+
+.dashboard-getstarted-done {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+}
+
+.dashboard-getstarted-done-text {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-main);
+}
 .dashboard-page {
   display: flex;
   flex-direction: column;

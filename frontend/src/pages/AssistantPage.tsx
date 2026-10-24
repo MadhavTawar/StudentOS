@@ -40,6 +40,10 @@ export const AssistantPage: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [messages, isLoading]);
 
+  useEffect(() => {
+    try { localStorage.setItem('studentos_study_guide_visited', 'true'); } catch { /* ignore */ }
+  }, []);
+
   const handleSendMessage = async (queryText = inputMessage) => {
     const textToSend = queryText.trim();
     if (!textToSend || isLoading) return;
