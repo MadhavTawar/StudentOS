@@ -492,36 +492,126 @@ class OfflineRuleBasedProvider(BaseAIProvider):
 
         lower_msg = safe_msg.lower()
         tasks = user_context.get("tasks", [])
-        deadlines = user_context.get("deadlines", [])
+        ranked = user_context.get("ranked", [])
 
-        if "today" in lower_msg or "work on" in lower_msg:
-            if not tasks:
+        if "today" in lower_msg or "work on" in lower_msg or "should i" in lower_msg:
+            pending = [t for t in tasks if t.get("status") in ("Pending", "In Progress")]
+            # filter to today
+            from datetime import datetime, timezone
+            today = datetime.now(timezone.utc).date().isoformat()
+            today_items = [t for t in pending if t.get("due_date") and t["due_date"][:10] == today]
+            if not today_items:
+                today_items = pending[:3]
+            if not today_items:
                 return "You have no pending tasks right now. Would you like to create one or check your email for new assignments?"
-            pending = [t for t in tasks if t.get("status") in ["Pending", "In Progress"]]
+            lines = "\n".join(f"- **{t.get('title')}** ({t.get('reason', '')})" for t in today_items[:5])
+            return f"Here is what you should focus on:\n{lines}"
+
+        elif "tomorrow" in lower_msg:
+            from datetime import datetime, timezone, timedelta
+            tomorrow = (datetime.now(timezone.utc) + timedelta(days=1)).date().isoformat()
+            pending = [t for t in tasks if t.get("status") in ("Pending", "In Progress")]
+            tomorrow_items = [t for t in pending if t.get("due_date") and t["due_date"][:10] == tomorrow]
+            if not tomorrow_items:
+                return "Nothing is due tomorrow. You have some breathing room!"
+            lines = "\n".join(f"- **{t.get('title')}** ({t.get('reason', '')})" for t in tomorrow_items[:5])
+            return f"Due tomorrow:\n{lines}"
+
+        elif "this week" in lower_msg or "week" in lower_msg:
+            pending = [t for t in tasks if t.get("status") in ("Pending", "In Progress")]
             if not pending:
-                return "All your active tasks are completed! Great job."
-            task_titles = "\n".join(f"- **{t.get('title')}** (Priority: {t.get('priority')})" for t in pending[:3])
-            return f"Here is what you should focus on today:\n{task_titles}"
+                return "No pending items this week."
+            lines = "\n".join(f"- **{t.get('title')}** ({t.get('reason', '')})" for t in pending[:8])
+            return f"Your week ahead:\n{lines}"
+
+        elif "overdue" in lower_msg:
+            overdue_items = [t for t in tasks if "overdue" in (t.get("reason") or "")]
+            if not overdue_items:
+                return "Nothing is overdue. Great job staying on track!"
+            lines = "\n".join(f"- **{t.get('title')}**" for t in overdue_items[:5])
+            return f"Overdue items:\n{lines}"
+
+        elif "when is" in lower_msg or "due?" in lower_msg or "due date" in lower_msg:
+            # fuzzy title match
+            query = lower_msg.replace("when is", "").replace("due?", "").replace("due", "").strip()
+            best = None
+            for t in tasks:
+                if query and query in t.get("title", "").lower():
+                    best = t
+                    break
+            if best is None and tasks:
+                best = tasks[0]
+            if best:
+                return f"**{best.get('title')}** is due {best.get('due_date') or 'with no set date'}."
+            return "I couldn't find that item."
+
+        elif "hours free" in lower_msg or "i have" in lower_msg:
+            # "I have N hours free"
+            m = re.search(r"(\d+(?:\.\d+)?)\s*hours?", lower_msg)
+            if m:
+                hours = float(m.group(1))
+                mins = int(hours * 60)
+                pending = [t for t in tasks if t.get("status") in ("Pending", "In Progress")]
+                total = sum(t.get("estimated_duration") or 60 for t in pending)
+                return (f"You have {hours}h free. Your pending work totals ~{total} min "
+                        f"({total/60:.1f}h). " + ("That fits!" if total <= mins else "That may not all fit."))
+            return "Tell me how many hours you have free, e.g. 'I have 3 hours free'."
+
+        elif "workload" in lower_msg or "capacity" in lower_msg:
+            pending = [t for t in tasks if t.get("status") in ("Pending", "In Progress")]
+            total = sum(t.get("estimated_duration") or 60 for t in pending)
+            return (f"Pending work: ~{total} min ({total/60:.1f}h). "
+                    f"Default daily capacity is 4h. Adjust in Settings if needed.")
+
+        elif "study plan" in lower_msg or "schedule" in lower_msg or "plan" in lower_msg:
+            return self._generate_study_plan_text(tasks)
+
+        elif "break down" in lower_msg or "break it down" in lower_msg:
+            # find the task
+            query = lower_msg.replace("break down", "").replace("break it down", "").strip()
+            best = None
+            for t in tasks:
+                if query and query in t.get("title", "").lower():
+                    best = t
+                    break
+            if best is None and tasks:
+                best = tasks[0]
+            if best:
+                est = best.get("estimated_duration") or 60
+                n = max(2, est // 30)
+                subtasks = [f"- Step {i+1}: work on {best.get('title')} (part {i+1}/{n})" for i in range(n)]
+                return "Breakdown:\n" + "\n".join(subtasks)
+            return "I couldn't find that task to break down."
 
         elif "deadline" in lower_msg or "upcoming" in lower_msg:
+            deadlines = user_context.get("deadlines", [])
             if not deadlines:
-                return "You have no upcoming deadlines recorded in your calendar."
-            lines = "\n".join(f"- **{d.get('title')}**: due {d.get('due_date')} ({d.get('event_type')})" for d in deadlines[:4])
-            return f"Here are your closest upcoming academic deadlines:\n{lines}"
+                return "You have no upcoming deadlines recorded."
+            lines = "\n".join(f"- **{d.get('title')}**: due {d.get('due_date')}" for d in deadlines[:5])
+            return f"Your upcoming deadlines:\n{lines}"
 
-        elif "study plan" in lower_msg or "schedule" in lower_msg:
-            return (
-                "### Recommended Study Plan for this Week:\n"
-                "- **Mon - Tue**: Focus on upcoming project milestones and review lecture notes.\n"
-                "- **Wed - Thu**: Complete laboratory submissions and problem sets.\n"
-                "- **Fri - Sat**: Placement preparation, mock coding interviews, and revision.\n"
-                "- **Sunday**: Weekly recap, planning next week's assignments, and rest."
-            )
-
+        # Unknown -> helpful fallback
         return (
-            f"I am your StudentOS Academic Assistant. You have {len(tasks)} active tasks and {len(deadlines)} deadlines tracked. "
-            "You can ask me: 'What should I work on today?', 'Which deadlines are coming up?', or 'Create a study plan for this week'."
+            "I'm your Study companion. I can help with:\n"
+            "- What should I work on today/tomorrow/this week?\n"
+            "- Which items are overdue?\n"
+            "- When is <task> due?\n"
+            "- I have N hours free\n"
+            "- Workload check\n"
+            "- Generate a study plan\n"
+            "- Break down <task>\n"
+            "- Upcoming deadlines\n"
+            "Try one of these!"
         )
+
+    def _generate_study_plan_text(self, tasks):
+        pending = [t for t in tasks if t.get("status") in ("Pending", "In Progress")]
+        if not pending:
+            return "No pending tasks to plan."
+        lines = ["### Study Plan", ""]
+        for t in pending[:8]:
+            lines.append(f"- **{t.get('title')}** — {t.get('estimated_duration') or 60} min ({t.get('reason', '')})")
+        return "\n".join(lines)
 
     async def grounded_answer(self, question: str, sources: List[Dict[str, Any]]) -> str:
         safe_question, suspicious = sanitize_and_check_injection(question)
@@ -953,13 +1043,36 @@ class AIService:
         """
         Conversational assistant querying authenticated user's tasks & deadlines with bounded retrieval.
         """
-        # Fetch authenticated user's current context
-        tasks = db.query(Task).filter(Task.user_id == user_id).limit(10).all()
-        deadlines = db.query(Deadline).filter(Deadline.user_id == user_id).order_by(Deadline.due_date.asc()).limit(5).all()
+        from backend.app.services.due_items import get_due_items
+        from backend.app.services.prioritization import rank_items
+
+        due_items = get_due_items(db, user_id, include_completed=False)
+        item_dicts = [
+            {
+                "id": it.id,
+                "title": it.title,
+                "due_date": it.due_date.isoformat() if it.due_date else None,
+                "priority": it.priority or "Medium",
+                "status": it.status,
+                "estimated_duration": it.estimated_duration,
+                "kind": it.kind,
+            }
+            for it in due_items
+        ]
+        ranked = rank_items(item_dicts, datetime.now(timezone.utc))
+        top_pending = ranked[:15]
+        events = [r for r in ranked if r.kind == "deadline"][:10]
+
+        tasks_ctx = [{"title": r.title, "priority": r.priority, "status": r.status,
+                      "due_date": r.due_date.isoformat() if r.due_date else None,
+                      "reason": r.reason, "estimated_duration": r.estimated_duration} for r in top_pending]
+        deadlines_ctx = [{"title": r.title, "due_date": r.due_date.isoformat() if r.due_date else None,
+                          "reason": r.reason} for r in events]
 
         context = {
-            "tasks": [{"title": t.title, "priority": t.priority, "status": t.status, "due_date": str(t.due_date)} for t in tasks],
-            "deadlines": [{"title": d.title, "event_type": d.event_type, "due_date": str(d.due_date)} for d in deadlines]
+            "tasks": tasks_ctx,
+            "deadlines": deadlines_ctx,
+            "ranked": [{"title": r.title, "reason": r.reason} for r in ranked[:10]],
         }
 
         provider = AIService.get_provider()
@@ -967,6 +1080,6 @@ class AIService:
 
         return AIAssistantResponse(
             reply=reply,
-            context_summary={"tasks_count": len(tasks), "deadlines_count": len(deadlines)},
+            context_summary={"tasks_count": len(tasks_ctx), "deadlines_count": len(deadlines_ctx)},
             provider=settings.AI_PROVIDER
         )
