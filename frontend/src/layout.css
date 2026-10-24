@@ -1764,10 +1764,10 @@ main > section > h1 {
   align-items: center;
   gap: 0.38rem;
   padding: 0.35rem 0.55rem;
-  color: #7b6853;
-  border: 1px solid #e8dccb;
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
   border-radius: 6px;
-  background: rgba(255, 253, 248, 0.75);
+  background: color-mix(in srgb, var(--bg-input) 80%, transparent);
   font-size: 0.68rem;
   font-weight: 600;
 }
