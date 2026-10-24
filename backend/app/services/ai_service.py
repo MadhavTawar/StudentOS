@@ -271,6 +271,75 @@ def sanitize_and_check_injection(text: str) -> Tuple[str, bool]:
 
 # --- Provider Abstraction ---
 
+def _edit_distance(a: str, b: str) -> int:
+    if a == b:
+        return 0
+    if not a:
+        return len(b)
+    if not b:
+        return len(a)
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        cur = [i]
+        for j, cb in enumerate(b, 1):
+            cost = 0 if ca == cb else 1
+            cur.append(min(prev[j] + 1, cur[j-1] + 1, prev[j-1] + cost))
+        prev = cur
+    return prev[-1]
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    try:
+        zone = ZoneInfo(tz)
+    except Exception:
+        zone = ZoneInfo("UTC")
+    try:
+        dt = datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return str(iso)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=zone)
+    else:
+        dt = dt.astimezone(zone)
+    return dt.strftime("%a %b %d, %I:%M %p")
+    if a == b:
+        return 0
+    if not a:
+        return len(b)
+    if not b:
+        return len(a)
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        cur = [i]
+        for j, cb in enumerate(b, 1):
+            cost = 0 if ca == cb else 1
+            cur.append(min(prev[j] + 1, cur[j-1] + 1, prev[j-1] + cost))
+        prev = cur
+    return prev[-1]
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    try:
+        zone = ZoneInfo(tz)
+    except Exception:
+        zone = ZoneInfo("UTC")
+    try:
+        dt = datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return str(iso)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=zone)
+    else:
+        dt = dt.astimezone(zone)
+    return dt.strftime("%a %b %d, %I:%M %p")
+
+
+GENERIC_STUDY_PLAN_WORDS = {
+    "exam", "exams", "test", "tests", "quiz", "assignment", "assignments",
+    "project", "projects", "lab", "report", "homework", "study", "plan",
+    "make", "generate", "my", "the", "for", "a", "an", "internal", "final",
+    "midterm", "unit", "units", "chapter",
+}
+
+
 def _human_date(iso: str, tz: str = "UTC") -> str:
     from datetime import datetime
     from zoneinfo import ZoneInfo
@@ -287,6 +356,10 @@ def _human_date(iso: str, tz: str = "UTC") -> str:
     else:
         dt = dt.astimezone(zone)
     return dt.strftime("%a %b %d, %I:%M %p")
+
+
+def _specific_words(text: str) -> set:
+    return {w for w in re.findall(r"[a-z0-9]+", text.lower()) if w not in GENERIC_STUDY_PLAN_WORDS}
 
 
 class BaseAIProvider(ABC):
@@ -582,24 +655,49 @@ class OfflineRuleBasedProvider(BaseAIProvider):
                     f"Default daily capacity is 4h. Adjust in Settings if needed.")
 
         elif "study plan" in lower_msg or "schedule" in lower_msg or "plan" in lower_msg:
-            # Find a matching task/deadline by title substring
             all_items = tasks + user_context.get("deadlines", [])
-            matched = None
+            msg_specific = _specific_words(lower_msg)
+
+            # If no specific words at all, ask which item.
+            if not msg_specific:
+                return ("Which item would you like a study plan for? "
+                        "Tell me the name (e.g. 'Make a study plan for my ITPM exam').")
+
+            # Find matching items: require at least one specific word to match
+            # a title word (whole-word, case-insensitive), with fuzzy allowed
+            # only for near-identical single words.
+            matched_items = []
             for it in all_items:
                 title = (it.get("title") or "").lower()
-                if title and (title in lower_msg or lower_msg in title):
-                    matched = it
+                title_specific = _specific_words(title)
+                # whole-word overlap
+                overlap = msg_specific & title_specific
+                if overlap:
+                    matched_items.append(it)
+                    continue
+                # fuzzy single-word fallback for typos
+                for mw in msg_specific:
+                    for tw in title_specific:
+                        if len(mw) >= 3 and len(tw) >= 3:
+                            # simple edit distance
+                            if _edit_distance(mw, tw) <= 1:
+                                matched_items.append(it)
+                                break
+                    else:
+                        continue
                     break
-            # fuzzy fallback
-            if matched is None:
-                for it in all_items:
-                    title = (it.get("title") or "").lower()
-                    if title and any(word in title for word in lower_msg.split() if len(word) > 3):
-                        matched = it
-                        break
-            if matched is None:
-                return ("I couldn't find a matching item for that study plan. "
-                        "Tell me which task or exam you mean (e.g. 'Make a study plan for my ITPM exam').")
+
+            if not matched_items:
+                asked = " ".join(sorted(msg_specific))
+                upcoming = [it.get("title") for it in all_items[:5]]
+                reply = f"I couldn't find anything about '{asked}' in your tasks or deadlines. Tell me which task or exam you mean."
+                if upcoming:
+                    reply += "\nUpcoming items you can choose from:\n" + "\n".join(f"- {t}" for t in upcoming)
+                return reply
+
+            matched = matched_items[0]
+            others = [it.get("title") for it in matched_items[1:]]
+            # build plan (existing logic)
             due = matched.get("due_date")
             if due:
                 from datetime import datetime, timezone, timedelta
@@ -628,10 +726,16 @@ class OfflineRuleBasedProvider(BaseAIProvider):
                         lines.append("Related tasks:")
                         for t in related:
                             lines.append(f"- **{t.get('title')}** ({t.get('reason', '')})")
+                    if others:
+                        lines.append("")
+                        lines.append(f"I also found: {', '.join(others)}")
                     return "\n".join(lines)
             # no due date
-            return (f"**{matched.get('title')}** has no due date set. "
-                    "Set a due date first, then I can build a plan around it.")
+            result = (f"**{matched.get('title')}** has no due date set. "
+                      "Set a due date first, then I can build a plan around it.")
+            if others:
+                result += f"\nI also found: {', '.join(others)}"
+            return result
 
         elif "break down" in lower_msg or "break it down" in lower_msg:
             # find the task
