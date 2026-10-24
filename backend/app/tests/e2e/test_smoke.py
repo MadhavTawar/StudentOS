@@ -1,8 +1,11 @@
 """Smoke tests for the public app."""
 import os
 import pytest
-from playwright.sync_api import Page, expect
 
+try:
+    from playwright.sync_api import Page, expect
+except ImportError:
+    pytest.skip("playwright not installed", allow_module_level=True)
 
 pytestmark = pytest.mark.e2e
 
