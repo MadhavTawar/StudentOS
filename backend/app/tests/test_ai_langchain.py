@@ -4,6 +4,8 @@ Tests for the LangChain AI integration (Phase 6).
 These tests verify the LangChain model factory and retriever wrapper using
 a fake/offline model. No network calls are made; all tests run with
 AI_PROVIDER=offline.
+
+Tests are skipped when langchain_core is not installed.
 """
 
 import pytest
@@ -11,7 +13,16 @@ from fastapi.testclient import TestClient
 
 from backend.app.core.config import settings
 from backend.app.services.ai_service import AIService
-from backend.app.ai.model_factory import _OfflineChatModel
+
+try:
+    from backend.app.ai.model_factory import _OfflineChatModel, get_chat_model
+    from langchain_core.language_models.chat_models import BaseChatModel
+    _LANGCHAIN_AVAILABLE = True
+except ImportError:
+    _OfflineChatModel = None
+    get_chat_model = None
+    BaseChatModel = None
+    _LANGCHAIN_AVAILABLE = False
 
 
 @pytest.fixture(autouse=True)
@@ -24,13 +35,9 @@ def _offline_provider(monkeypatch):
 def test_offline_model_is_fake_chat_model():
     """The offline provider should return a LangChain BaseChatModel that
     does not make any network calls."""
-    provider = AIService.get_provider()
-    # When AI_PROVIDER=offline, AIService.get_provider returns OfflineRuleBasedProvider
-    # (a non-LangChain provider). The new LangChain factory's offline model is
-    # accessed via get_chat_model().
-    from backend.app.ai.model_factory import get_chat_model
+    if not _LANGCHAIN_AVAILABLE:
+        pytest.skip("langchain_core not installed")
     model = get_chat_model()
-    from langchain_core.language_models.chat_models import BaseChatModel
     assert isinstance(model, BaseChatModel)
     assert model._llm_type == "offline"
 
@@ -59,9 +66,6 @@ def test_groq_network_error_returns_503(client, auth_headers, monkeypatch):
     monkeypatch.setattr(settings, "GROQ_API_URL", "https://api.groq.example/openai/v1/chat/completions")
 
     class _FakeClient:
-        def __init__(self, **kwargs):
-            pass
-
         async def __aenter__(self):
             return self
 
@@ -118,4 +122,3 @@ def test_groq_malformed_response_returns_502(client, auth_headers, monkeypatch):
     )
     assert response.status_code == 502
     assert "invalid response" in response.json()["detail"].lower()
-
