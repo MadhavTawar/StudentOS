@@ -66,6 +66,9 @@ def test_groq_network_error_returns_503(client, auth_headers, monkeypatch):
     monkeypatch.setattr(settings, "GROQ_API_URL", "https://api.groq.example/openai/v1/chat/completions")
 
     class _FakeClient:
+        def __init__(self, **kwargs):
+            pass
+
         async def __aenter__(self):
             return self
 
