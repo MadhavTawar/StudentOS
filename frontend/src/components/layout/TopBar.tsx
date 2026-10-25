@@ -164,8 +164,15 @@ export const TopBar: React.FC = () => {
               end={link.end}
               onClick={closeMenus}
               className={({ isActive }) => {
-                const isLearnActive = isActive || pathname === '/app/learn';
-                return `topbar-nav-link${isLearnActive ? ' is-active' : ''}`;
+                let active = isActive;
+                if (link.to === '/app/learn') {
+                  active =
+                    isActive ||
+                    ['/app/learn', '/app/knowledge', '/app/knowledge/manage', '/app/assistant'].includes(
+                      pathname
+                    );
+                }
+                return `topbar-nav-link${active ? ' is-active' : ''}`;
               }}
             >
               {link.label}

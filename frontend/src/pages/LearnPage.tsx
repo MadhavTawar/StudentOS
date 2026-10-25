@@ -14,7 +14,9 @@ import './LearnPage.css';
 
 interface LearnTurn {
   question: string;
-  result: KnowledgeChatResponse;
+  source: 'documents' | 'studentos';
+  knowledge?: KnowledgeChatResponse;
+  assistant?: { reply: string; provider: string };
 }
 
 interface DocumentPreview {
@@ -29,6 +31,24 @@ interface DocumentPreview {
 const errorText = (error: unknown) =>
   error instanceof Error ? error.message : 'Please check that the StudentOS service is available.';
 
+// Heuristic: route schedule/task/deadline/goal questions to the assistant endpoint,
+// everything else to the document-grounded knowledge endpoint.
+const isStudentOsQuestion = (prompt: string) => {
+  const lower = prompt.toLowerCase();
+  return (
+    lower.includes('task') ||
+    lower.includes('deadline') ||
+    lower.includes('goal') ||
+    lower.includes('homework') ||
+    lower.includes('assignment') ||
+    lower.includes('exam') ||
+    lower.includes('due') ||
+    lower.includes('study plan') ||
+    lower.includes('work on') ||
+    lower.includes('schedule')
+  );
+};
+
 export const LearnPage: React.FC = () => {
   const [library, setLibrary] = useState<KnowledgeLibraryItem[]>([]);
   const [selectedDocumentId, setSelectedDocumentId] = useState<string>('');
@@ -37,6 +57,7 @@ export const LearnPage: React.FC = () => {
   const [previewPage, setPreviewPage] = useState(1);
   const [activePanel, setActivePanel] = useState<'documents' | 'reader' | 'chat'>('documents');
   const [access, setAccess] = useState<KnowledgeAccess | null>(null);
+  const [aiProvider, setAiProvider] = useState<string | null>(null);
   const [turns, setTurns] = useState<LearnTurn[]>([]);
   const [question, setQuestion] = useState('');
   const [isLoadingLibrary, setIsLoadingLibrary] = useState(true);
@@ -46,12 +67,13 @@ export const LearnPage: React.FC = () => {
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    Promise.all([api.listKnowledgeLibrary(), api.getKnowledgeAccess()])
-      .then(([items, currentAccess]) => {
+    Promise.all([api.listKnowledgeLibrary(), api.getKnowledgeAccess(), api.getAiProvider()])
+      .then(([items, currentAccess, provider]) => {
         setLibrary(items);
         setSelectedDocumentId(items[0]?.id ?? '');
         setSelectedVersionId(items[0]?.version_id ?? '');
         setAccess(currentAccess);
+        setAiProvider(provider.provider);
       })
       .catch((loadError: unknown) => setError(errorText(loadError)))
       .finally(() => setIsLoadingLibrary(false));
@@ -110,8 +132,16 @@ export const LearnPage: React.FC = () => {
     setChatError('');
     setQuestion('');
     try {
-      const result = await api.chatWithKnowledge(prompt);
-      setTurns((previous) => [...previous, { question: prompt, result }]);
+      if (isStudentOsQuestion(prompt)) {
+        const assistant = await api.chatAssistant(prompt);
+        setTurns((previous) => [
+          ...previous,
+          { question: prompt, source: 'studentos', assistant: { reply: assistant.reply, provider: assistant.provider } },
+        ]);
+      } else {
+        const result = await api.chatWithKnowledge(prompt);
+        setTurns((previous) => [...previous, { question: prompt, source: 'documents', knowledge: result }]);
+      }
     } catch (requestError) {
       setChatError(errorText(requestError));
       setQuestion(prompt);
@@ -279,7 +309,7 @@ export const LearnPage: React.FC = () => {
             <div className="learn-panel-icon"><BookOpen size={19} /></div>
             <div>
               <h2>Ask the library</h2>
-              <p>Answers are grounded in the current published collection.</p>
+              <p>Questions about your documents use published sources; task, deadline and goal questions use your StudentOS data.</p>
             </div>
           </div>
 
@@ -288,21 +318,24 @@ export const LearnPage: React.FC = () => {
               <div className="learn-empty-chat">
                 <Search size={22} />
                 <strong>Find a clear answer, with evidence.</strong>
-                <span>Try asking about a reference, study resource, or shared procedure.</span>
+                <span>Ask about a reference, your tasks, deadlines or goals.</span>
               </div>
-            ) : turns.map(({ question: asked, result }, index) => (
+            ) : turns.map(({ question: asked, source, knowledge, assistant }, index) => (
               <article className="learn-turn" key={`${index}-${asked}`}>
                 <p className="learn-question">{asked}</p>
-                <div className={`learn-answer${result.insufficient_evidence ? ' is-insufficient' : ''}`}>
-                  {result.insufficient_evidence && (
+                <div className="learn-turn-label">
+                  {source === 'documents' ? 'From your documents' : 'From your StudentOS data'}
+                </div>
+                <div className={`learn-answer${knowledge?.insufficient_evidence ? ' is-insufficient' : ''}`}>
+                  {knowledge?.insufficient_evidence && (
                     <strong className="learn-evidence-warning">Not enough evidence — no published source supports this answer.</strong>
                   )}
-                  {result.answer}
+                  {source === 'documents' ? knowledge?.answer : assistant?.reply}
                 </div>
-                {result.citations.length > 0 && (
+                {source === 'documents' && knowledge && knowledge.citations.length > 0 && (
                   <div className="learn-citations">
                     <strong><ShieldCheck size={15} /> Sources checked</strong>
-                    {result.citations.map((citation) => (
+                    {knowledge.citations.map((citation) => (
                       <details className="learn-citation" key={citation.chunk_id}>
                         <summary>
                           <span>{citation.document_title}</span>
@@ -327,7 +360,7 @@ export const LearnPage: React.FC = () => {
                 )}
               </article>
             ))}
-            {isAsking && <p className="learn-thinking">Checking published workspace sources…</p>}
+            {isAsking && <p className="learn-thinking">Checking your workspace…</p>}
           </div>
 
           {chatError && <p className="learn-error" role="alert">{chatError}</p>}
@@ -348,9 +381,9 @@ export const LearnPage: React.FC = () => {
           </form>
           <p className="learn-privacy-note">
             <ShieldCheck size={14} />
-            {access?.ai_provider === 'offline'
+            {aiProvider === 'offline'
               ? 'Questions and source matching run locally against published workspace material.'
-              : access?.ai_provider === 'groq'
+              : aiProvider === 'groq'
                 ? 'Your question and relevant source excerpts are sent to the configured Groq AI service.'
                 : 'Your question and relevant source excerpts are processed by the configured AI service.'}
           </p>
