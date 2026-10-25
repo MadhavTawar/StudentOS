@@ -374,6 +374,69 @@ def test_study_plan_no_match(client, auth_headers):
     assert "couldn't find" in reply.lower() or "which" in reply.lower()
 
 
+def test_unsupported_ai_provider_fails_explicitly(
+    client, auth_headers, monkeypatch
+):
+    from backend.app.core.config import settings
+
+    monkeypatch.setattr(settings, "AI_PROVIDER", "openai")
+    response = client.post(
+        "/api/v1/ai/assistant/chat",
+        json={"message": "What should I work on today?"},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 503
+    assert "Unsupported AI_PROVIDER" in response.json()["detail"]
+
+
+def test_study_plan_typo_matches(client, auth_headers):
+    client.post("/api/v1/tasks/", json={
+        "title": "ITPM internal exam",
+        "priority": "High",
+        "due_date": "2026-10-30T10:00:00Z",
+        "estimated_duration": 120,
+    }, headers=auth_headers)
+    res = client.post("/api/v1/ai/assistant/chat", json={
+        "message": "study plan for my itmp exam",
+    }, headers=auth_headers)
+    assert res.status_code == 200
+    reply = res.json()["reply"]
+    assert "ITPM" in reply
+
+
+def test_study_plan_multiple_matches_mentions_others(client, auth_headers):
+    client.post("/api/v1/tasks/", json={
+        "title": "DBMS unit 3 test",
+        "priority": "High",
+        "due_date": "2026-10-30T10:00:00Z",
+        "estimated_duration": 60,
+    }, headers=auth_headers)
+    client.post("/api/v1/tasks/", json={
+        "title": "DBMS lab report",
+        "priority": "Medium",
+        "due_date": "2026-11-05T10:00:00Z",
+        "estimated_duration": 60,
+    }, headers=auth_headers)
+    res = client.post("/api/v1/ai/assistant/chat", json={
+        "message": "plan for DBMS test",
+    }, headers=auth_headers)
+    assert res.status_code == 200
+    reply = res.json()["reply"]
+    assert "DBMS unit 3 test" in reply
+    assert "I also found" in reply
+    assert "DBMS lab report" in reply
+
+
+def test_study_plan_no_subject_asks_which(client, auth_headers):
+    res = client.post("/api/v1/ai/assistant/chat", json={
+        "message": "Generate a study plan",
+    }, headers=auth_headers)
+    assert res.status_code == 200
+    reply = res.json()["reply"]
+    assert "which" in reply.lower() or "tell me" in reply.lower()
+
+
 def test_upcoming_deadlines_human_date(client, auth_headers):
     client.post("/api/v1/deadlines/", json={
         "title": "ITPM exam",

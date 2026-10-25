@@ -256,6 +256,29 @@ async def test_retriever_returns_empty_when_no_results(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_retriever_isolates_workspace(monkeypatch):
+    """Retriever must query the vector store with its own workspace_id only,
+    never leaking another workspace's identifier."""
+    if not _LANGCHAIN_AVAILABLE:
+        pytest.skip("langchain_core not installed")
+    retriever = KnowledgeRetriever(workspace_id="ws_user_a", top_k=5)
+
+    from backend.app.services import knowledge_vector_store
+
+    captured = {}
+
+    class _FakeStore:
+        def search(self, query, workspace_id, limit):
+            captured["workspace_id"] = workspace_id
+            return []
+
+    monkeypatch.setattr(knowledge_vector_store.KnowledgeVectorStore, "search", _FakeStore().search)
+
+    await retriever.ainvoke("any query")
+    assert captured["workspace_id"] == "ws_user_a"
+
+
+@pytest.mark.asyncio
 async def test_grounded_answer_insufficient_evidence():
     """When there are no sources, grounded_answer should say so clearly."""
     if not _LANGCHAIN_AVAILABLE:
