@@ -1,8 +1,26 @@
 from backend.app.api import deps
 from backend.app.api.deps import check_rate_limit
+from backend.app.schemas.ai import AIAssistantResponse
+from backend.app.services.ai_service import AIService
 
 
-def test_rate_limit_returns_429_for_authenticated_assistant(client, auth_headers):
+def test_rate_limit_returns_429_for_authenticated_assistant(client, auth_headers, monkeypatch):
+    # Clear any rate-limiter state left by other tests (module-level dicts).
+    deps._rate_limit_records.clear()
+    deps._rate_limit_windows.clear()
+
+    # Make the model operation instant so all requests happen within the
+    # 60-second rate-limit window. The actual rate-limiting mechanism still
+    # runs for real, and authentication remains enabled.
+    async def _fake_chat_with_assistant(db, user_id, user_message):
+        return AIAssistantResponse(
+            reply="Instant test reply",
+            context_summary={"tasks_count": 0, "deadlines_count": 0},
+            provider="offline",
+        )
+
+    monkeypatch.setattr(AIService, "chat_with_assistant", staticmethod(_fake_chat_with_assistant))
+
     for _ in range(30):
         response = client.post(
             "/api/v1/ai/assistant/chat",

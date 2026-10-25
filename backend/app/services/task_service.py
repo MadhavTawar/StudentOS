@@ -177,23 +177,34 @@ class TaskService:
     @staticmethod
     def get_stats(db: Session, user_id: str) -> TaskStats:
         now = datetime.now(timezone.utc)
-        start_of_today = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
-        end_of_today = start_of_today + timedelta(days=1)
+
+        # Resolve the user's timezone so "today" is evaluated in local time.
+        from backend.app.models.user import UserPreference
+        pref = db.query(UserPreference).filter(UserPreference.user_id == user_id).first()
+        user_tz = pref.timezone if pref and pref.timezone else "UTC"
+        try:
+            local_zone = ZoneInfo(user_tz)
+        except ZoneInfoNotFoundError:
+            local_zone = timezone.utc
+
+        local_now = now.astimezone(local_zone)
+        local_today = local_now.date()
 
         tasks = db.query(Task).filter(Task.user_id == user_id).all()
         total = len(tasks)
         pending = sum(1 for t in tasks if t.status == "Pending")
         in_progress = sum(1 for t in tasks if t.status == "In Progress")
         completed = sum(1 for t in tasks if t.status == "Completed")
-        
+
         overdue = sum(
-            1 for t in tasks 
+            1 for t in tasks
             if t.status in ["Pending", "In Progress"] and t.due_date and ensure_utc(t.due_date) < now
         )
-        
+
         due_today = sum(
             1 for t in tasks
-            if t.status in ["Pending", "In Progress"] and t.due_date and start_of_today <= ensure_utc(t.due_date) < end_of_today
+            if t.status in ["Pending", "In Progress"] and t.due_date
+            and ensure_utc(t.due_date).astimezone(local_zone).date() == local_today
         )
 
         return TaskStats(

@@ -301,6 +301,7 @@ def _mark_processing_failed(
     db.rollback()
     version = db.query(KnowledgeDocumentVersion).filter_by(id=version_id).first()
     if version is not None:
+        storage_key = version.storage_key
         version.status = "failed"
         version.error_message = message[:500]
         _audit(
@@ -312,6 +313,12 @@ def _mark_processing_failed(
             {"reason": message[:120]},
         )
         db.commit()
+        # Remove the orphaned storage file left by a failed upload.
+        path = _storage_path(storage_key)
+        try:
+            path.unlink(missing_ok=True)
+        except OSError as exc:
+            logger.exception("Could not remove orphaned document file %s.", version_id)
     logger.warning("Institute document processing failed for document %s: %s", document_id, message[:120])
 
 

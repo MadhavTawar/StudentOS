@@ -59,21 +59,26 @@ class DeadlineService:
 
         if upcoming_only:
             query = query.filter(Deadline.due_date >= now, Deadline.status != "Completed")
-        elif status_filter:
-            query = query.filter(Deadline.status == status_filter)
 
-        total = query.count()
-        deadlines = query.order_by(asc(Deadline.due_date)).offset(offset).limit(limit).all()
+        # Fetch candidates; effective status (Overdue / Due Soon) is computed
+        # below so that status_filter matches the computed value, not the
+        # potentially-stale stored status column.
+        deadlines = query.order_by(asc(Deadline.due_date)).all()
 
-        # Update dynamic overdue state for records in the query
+        effective: List[Deadline] = []
         for d in deadlines:
             due_dt = ensure_utc(d.due_date)
-            if d.status not in ["Completed"] and due_dt and due_dt < now:
+            if d.status != "Completed" and due_dt and due_dt < now:
                 d.status = "Overdue"
-            elif d.status not in ["Completed"] and due_dt and due_dt <= (now + timedelta(hours=48)):
+            elif d.status != "Completed" and due_dt and due_dt <= (now + timedelta(hours=48)):
                 d.status = "Due Soon"
+            effective.append(d)
 
-        return deadlines, total
+        if status_filter:
+            effective = [d for d in effective if d.status == status_filter]
+
+        total = len(effective)
+        return effective[offset:offset + limit], total
 
     @staticmethod
     def create_deadline(db: Session, user_id: str, deadline_in: DeadlineCreate) -> Deadline:

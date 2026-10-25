@@ -191,6 +191,23 @@ def test_published_library_and_rag_are_scoped_to_the_selected_workspace(
     assert library.status_code == 200
     assert library.json()[0]["title"] == "Academic integrity guide"
 
+    import backend.app.services.ai_service as ai_service_mod
+
+    class _GroundedTestModel:
+        async def ainvoke(self, messages):
+            class _Result:
+                def __init__(self, content):
+                    self.content = content
+
+            human = messages[1] if len(messages) > 1 else None
+            text = human.content if human else ""
+            if "Sources:" in text:
+                sources = text.split("Sources:", 1)[1]
+                return _Result(f"Based on the published sources: {sources[:700]}")
+            return _Result("No sources available.")
+
+    monkeypatch.setattr(ai_service_mod, "get_chat_model", lambda: _GroundedTestModel())
+
     answer = client.post(
         "/api/v1/knowledge/chat",
         json={"question": "What must students do when using sources?"},
@@ -264,6 +281,24 @@ def test_replacement_requires_explicit_publish_and_preserves_current_version(
     assert replacement.status_code == 200, replacement.text
     versions = replacement.json()["versions"]
     assert [version["status"] for version in versions] == ["published", "ready"]
+
+    import backend.app.services.ai_service as ai_service_mod
+
+    class _GroundedTestModel:
+        async def ainvoke(self, messages):
+            class _Result:
+                def __init__(self, content):
+                    self.content = content
+
+            human = messages[1] if len(messages) > 1 else None
+            text = human.content if human else ""
+            if "Sources:" in text:
+                sources = text.split("Sources:", 1)[1]
+                return _Result(f"Based on the published sources: {sources[:700]}")
+            return _Result("No sources available.")
+
+    monkeypatch.setattr(ai_service_mod, "get_chat_model", lambda: _GroundedTestModel())
+
     result = client.post(
         "/api/v1/knowledge/chat",
         json={"question": "What calculator is allowed during the exam?"},

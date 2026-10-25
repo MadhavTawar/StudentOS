@@ -7,6 +7,8 @@ import { RegisterPage } from './pages/RegisterPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { PlannerPage } from './pages/PlannerPage';
 import { InboxPage } from './pages/InboxPage';
+import { AssistantPage } from './pages/AssistantPage';
+import { KnowledgePage } from './pages/KnowledgePage';
 import { LearnPage } from './pages/LearnPage';
 import { RemindersPage } from './pages/RemindersPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -37,9 +39,9 @@ export function App() {
             <Route path="deadlines" element={<Navigate to="/app/planner?view=deadlines" replace />} />
             <Route path="inbox" element={<InboxPage />} />
             <Route path="learn" element={<LearnPage />} />
-            <Route path="knowledge" element={<Navigate to="/app/learn" replace />} />
+            <Route path="knowledge" element={<KnowledgePage />} />
             <Route path="knowledge/manage" element={<KnowledgeAdminPage />} />
-            <Route path="assistant" element={<Navigate to="/app/learn" replace />} />
+            <Route path="assistant" element={<AssistantPage />} />
             <Route path="reminders" element={<RemindersPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="workspaces" element={<WorkspacesPage />} />

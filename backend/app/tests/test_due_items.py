@@ -1,7 +1,7 @@
 """Tests for the shared due-items layer."""
 from datetime import datetime, timezone, timedelta
 
-from backend.app.services.due_items import get_due_items, find_duplicate_task
+from backend.app.services.due_items import get_due_items, find_duplicate_task, find_duplicate_deadline
 from backend.app.models.task import Task
 from backend.app.models.deadline import Deadline
 
@@ -58,3 +58,25 @@ def test_find_duplicate_task_fuzzy(db, test_user):
     dup = find_duplicate_task(db, test_user.id, "DBMS Assignment II", due)
     # fuzzy may or may not match depending on threshold; just check no crash
     assert dup is None or dup.id == t.id
+
+
+def test_find_duplicate_deadline_exact(db, test_user):
+    due = datetime.now(timezone.utc) + timedelta(days=1)
+    d = Deadline(user_id=test_user.id, title="Database Quiz", event_type="Examination", due_date=due, status="Upcoming")
+    db.add(d); db.commit()
+    dup = find_duplicate_deadline(db, test_user.id, "Database Quiz", due)
+    assert dup is not None
+    assert dup.id == d.id
+
+
+def test_find_duplicate_deadline_none(db, test_user):
+    dup = find_duplicate_deadline(db, test_user.id, "Nonexistent", None)
+    assert dup is None
+
+
+def test_find_duplicate_deadline_user_isolation(db, test_user, second_user):
+    due = datetime.now(timezone.utc) + timedelta(days=1)
+    d = Deadline(user_id=test_user.id, title="Private Deadline", event_type="Assignment", due_date=due, status="Upcoming")
+    db.add(d); db.commit()
+    dup = find_duplicate_deadline(db, second_user.id, "Private Deadline", due)
+    assert dup is None

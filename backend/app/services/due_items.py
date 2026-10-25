@@ -2,7 +2,7 @@
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from difflib import SequenceMatcher
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from sqlalchemy.orm import Session
 
@@ -97,44 +97,39 @@ def _normalize_title(title: str) -> str:
     return " ".join(title.lower().split())
 
 
+def _find_duplicate(
+    db: Session,
+    model: Any,
+    user_id: str,
+    title: str,
+    due_date: Optional[datetime],
+) -> Any:
+    """Find a record with similar normalised title and same due day."""
+    norm = _normalize_title(title)
+    candidates = db.query(model).filter(model.user_id == user_id).all()
+    for candidate in candidates:
+        if _normalize_title(candidate.title) == norm:
+            if due_date and candidate.due_date:
+                if candidate.due_date.date() == due_date.date():
+                    return candidate
+            elif due_date is None and candidate.due_date is None:
+                return candidate
+    # fuzzy similarity
+    for candidate in candidates:
+        ratio = SequenceMatcher(None, norm, _normalize_title(candidate.title)).ratio()
+        if ratio >= 0.85:
+            if due_date and candidate.due_date and candidate.due_date.date() == due_date.date():
+                return candidate
+            if due_date is None and candidate.due_date is None:
+                return candidate
+    return None
+
+
 def find_duplicate_task(db: Session, user_id: str, title: str, due_date: Optional[datetime]) -> Optional[Task]:
     """Find a task with similar normalised title and same due day."""
-    norm = _normalize_title(title)
-    candidates = db.query(Task).filter(Task.user_id == user_id).all()
-    for t in candidates:
-        if _normalize_title(t.title) == norm:
-            if due_date and t.due_date:
-                if t.due_date.date() == due_date.date():
-                    return t
-            elif due_date is None and t.due_date is None:
-                return t
-    # fuzzy similarity
-    for t in candidates:
-        ratio = SequenceMatcher(None, norm, _normalize_title(t.title)).ratio()
-        if ratio >= 0.85:
-            if due_date and t.due_date and t.due_date.date() == due_date.date():
-                return t
-            if due_date is None and t.due_date is None:
-                return t
-    return None
+    return _find_duplicate(db, Task, user_id, title, due_date)
 
 
 def find_duplicate_deadline(db: Session, user_id: str, title: str, due_date: Optional[datetime]) -> Optional[Deadline]:
     """Find a deadline with similar normalised title and same due day."""
-    norm = _normalize_title(title)
-    candidates = db.query(Deadline).filter(Deadline.user_id == user_id).all()
-    for d in candidates:
-        if _normalize_title(d.title) == norm:
-            if due_date and d.due_date:
-                if d.due_date.date() == due_date.date():
-                    return d
-            elif due_date is None and d.due_date is None:
-                return d
-    for d in candidates:
-        ratio = SequenceMatcher(None, norm, _normalize_title(d.title)).ratio()
-        if ratio >= 0.85:
-            if due_date and d.due_date and d.due_date.date() == due_date.date():
-                return d
-            if due_date is None and d.due_date is None:
-                return d
-    return None
+    return _find_duplicate(db, Deadline, user_id, title, due_date)

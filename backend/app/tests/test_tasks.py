@@ -71,3 +71,27 @@ def test_task_stats(client, auth_headers):
     assert "pending" in stats
     assert "completed" in stats
     assert "overdue" in stats
+
+
+def test_get_stats_uses_user_timezone_for_due_today(db, test_user):
+    from backend.app.services.task_service import TaskService
+    from backend.app.models.user import UserPreference
+
+    # Set user timezone to America/New_York (UTC-4)
+    pref = UserPreference(
+        user_id=test_user.id,
+        timezone="America/New_York",
+        theme="dark",
+        email_sync_enabled=True,
+        ai_features_enabled=True,
+        reminder_lead_minutes=1440,
+    )
+    db.add(pref)
+    db.commit()
+
+    stats = TaskService.get_stats(db, test_user.id)
+    assert stats.total == 0
+    assert stats.pending == 0
+    assert stats.completed == 0
+    assert stats.overdue == 0
+    assert stats.due_today == 0

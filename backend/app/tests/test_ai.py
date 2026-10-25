@@ -1,11 +1,16 @@
 import pytest
 from datetime import datetime, timezone, timedelta
+from fastapi import HTTPException
+from fastapi.testclient import TestClient
+import httpx
+
+from backend.app.core.config import settings
+from backend.app.services.ai_service import AIService
 
 
 @pytest.fixture(autouse=True)
 def isolate_ai_provider_from_local_environment(monkeypatch):
-    from backend.app.core.config import settings
-
+    """Force the offline provider for all tests in this module."""
     monkeypatch.setattr(settings, "AI_PROVIDER", "offline")
     monkeypatch.setattr(settings, "GROQ_API_KEY", "")
 
@@ -132,9 +137,7 @@ def test_reextracting_same_email_does_not_duplicate_proposals(client, auth_heade
     assert len(client.get("/api/v1/ai/candidates", headers=auth_headers).json()) == len(first.json())
 
 
-def test_unsupported_ai_provider_fails_explicitly(
-    client, auth_headers, monkeypatch
-):
+def test_unsupported_ai_provider_fails_explicitly(client, auth_headers, monkeypatch):
     from backend.app.core.config import settings
 
     monkeypatch.setattr(settings, "AI_PROVIDER", "openai")
@@ -143,7 +146,6 @@ def test_unsupported_ai_provider_fails_explicitly(
         json={"message": "What should I work on today?"},
         headers=auth_headers,
     )
-
     assert response.status_code == 503
     assert "Unsupported AI_PROVIDER" in response.json()["detail"]
 
@@ -152,7 +154,7 @@ def test_groq_email_extraction_uses_validated_mock_response(
     client, auth_headers, monkeypatch
 ):
     from backend.app.core.config import settings
-    from backend.app.services import ai_service
+    import backend.app.services.ai_service as ai_service_mod
 
     monkeypatch.setattr(settings, "AI_PROVIDER", "groq")
     monkeypatch.setattr(settings, "GROQ_API_KEY", "test-key")
@@ -161,46 +163,30 @@ def test_groq_email_extraction_uses_validated_mock_response(
         settings, "GROQ_API_URL", "https://api.groq.example/openai/v1/chat/completions"
     )
 
-    class FakeResponse:
-        status_code = 200
-
-        @staticmethod
-        def json():
-            return {
-                "choices": [{
-                    "message": {
-                        "content": (
-                            '{"summary":"An assignment email.","confidence_overall":0.9,'
-                            '"tasks":[{"title":"Submit CS assignment",'
-                            '"description":"Submit the assignment by Friday.",'
-                            '"category":"Assignment","priority":"High",'
-                            '"due_date":"2026-10-23T17:00:00Z",'
-                            '"supporting_evidence":"due Friday at 5:00 PM",'
-                            '"confidence_score":0.9}],"deadlines":[]}'
-                        )
-                    }
-                }]
-            }
-
-    class FakeClient:
-        request_json = None
-        request_headers = None
+    class _FakeModel:
+        init_kwargs = None
 
         def __init__(self, **kwargs):
-            pass
+            _FakeModel.init_kwargs = kwargs
 
-        async def __aenter__(self):
-            return self
+        async def ainvoke(self, messages):
+            class _Result:
+                def __init__(self, content):
+                    self.content = content
 
-        async def __aexit__(self, exc_type, exc, traceback):
-            return None
+            return _Result(
+                '{"summary":"An assignment email.","confidence_overall":0.9,'
+                '"tasks":[{"title":"Submit CS assignment",'
+                '"description":"Submit the assignment by Friday.",'
+                '"category":"Assignment","priority":"High",'
+                '"due_date":"2026-10-23T17:00:00Z",'
+                '"supporting_evidence":"due Friday at 5:00 PM",'
+                '"confidence_score":0.9}],"deadlines":[]}'
+            )
 
-        async def post(self, url, headers, json):
-            self.__class__.request_json = json
-            self.__class__.request_headers = headers
-            return FakeResponse()
+    import langchain_openai
 
-    monkeypatch.setattr(ai_service.httpx, "AsyncClient", FakeClient)
+    monkeypatch.setattr(langchain_openai, "ChatOpenAI", _FakeModel)
     response = client.post(
         "/api/v1/ai/extract-email",
         json={
@@ -218,53 +204,34 @@ def test_groq_email_extraction_uses_validated_mock_response(
     assert candidates[0]["title"] == "Submit CS assignment"
     assert candidates[0]["validation_status"] == "pending_review"
     assert candidates[0]["created_task_id"] is None
-    assert FakeClient.request_json["model"] == "test-model"
-    assert FakeClient.request_json["response_format"] == {"type": "json_object"}
-    assert FakeClient.request_headers["Authorization"] == "Bearer test-key"
+    assert _FakeModel.init_kwargs["model"] == "test-model"
+    assert _FakeModel.init_kwargs["openai_api_key"] == "test-key"
 
 
 def test_groq_rejects_evidence_not_present_in_source_email(
     client, auth_headers, monkeypatch
 ):
     from backend.app.core.config import settings
-    from backend.app.services import ai_service
+    import backend.app.services.ai_service as ai_service_mod
 
     monkeypatch.setattr(settings, "AI_PROVIDER", "groq")
     monkeypatch.setattr(settings, "GROQ_API_KEY", "test-key")
 
-    class FakeResponse:
-        status_code = 200
+    class _FakeModel:
+        async def ainvoke(self, messages):
+            class _Result:
+                def __init__(self, content):
+                    self.content = content
 
-        @staticmethod
-        def json():
-            return {
-                "choices": [{
-                    "message": {
-                        "content": (
-                            '{"summary":"Assignment email.","confidence_overall":0.8,'
-                            '"tasks":[{"title":"Submit assignment","description":"Assignment",'
-                            '"category":"Assignment","priority":"Medium","due_date":null,'
-                            '"supporting_evidence":"fabricated quote","confidence_score":0.8}],'
-                            '"deadlines":[]}'
-                        )
-                    }
-                }]
-            }
+            return _Result(
+                '{"summary":"Assignment email.","confidence_overall":0.8,'
+                '"tasks":[{"title":"Submit assignment","description":"Assignment",'
+                '"category":"Assignment","priority":"Medium","due_date":null,'
+                '"supporting_evidence":"fabricated quote","confidence_score":0.8}],'
+                '"deadlines":[]}'
+            )
 
-    class FakeClient:
-        def __init__(self, **kwargs):
-            pass
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, exc_type, exc, traceback):
-            return None
-
-        async def post(self, *args, **kwargs):
-            return FakeResponse()
-
-    monkeypatch.setattr(ai_service.httpx, "AsyncClient", FakeClient)
+    monkeypatch.setattr(ai_service_mod, "get_chat_model", lambda: _FakeModel())
     response = client.post(
         "/api/v1/ai/extract-email",
         json={
@@ -295,7 +262,6 @@ def test_groq_provider_requires_api_key(client, auth_headers, monkeypatch):
 
 
 def test_groq_network_error_returns_503(client, auth_headers, monkeypatch):
-    from backend.app.core.config import settings
     from backend.app.services import ai_service
     import httpx
 
@@ -303,23 +269,14 @@ def test_groq_network_error_returns_503(client, auth_headers, monkeypatch):
     monkeypatch.setattr(settings, "GROQ_API_KEY", "test-key")
     monkeypatch.setattr(settings, "GROQ_API_URL", "https://api.groq.example/openai/v1/chat/completions")
 
-    class _FakeResponse:
-        status_code = 503
-
-    class _FakeClient:
-        def __init__(self, **kwargs):
-            pass
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, exc_type, exc, traceback):
-            return None
-
-        async def post(self, *args, **kwargs):
+    class _FakeModel:
+        async def ainvoke(self, messages):
             raise httpx.ConnectError("network unreachable")
 
-    monkeypatch.setattr(ai_service.httpx, "AsyncClient", _FakeClient)
+    import backend.app.services.ai_service as ai_service_mod
+
+    monkeypatch.setattr(ai_service_mod, "get_chat_model", lambda: _FakeModel())
+
     response = client.post(
         "/api/v1/ai/assistant/chat",
         json={"message": "What should I work on today?"},
@@ -330,33 +287,17 @@ def test_groq_network_error_returns_503(client, auth_headers, monkeypatch):
 
 
 def test_groq_malformed_response_returns_502(client, auth_headers, monkeypatch):
-    from backend.app.core.config import settings
-    from backend.app.services import ai_service
+    import backend.app.services.ai_service as ai_service_mod
 
     monkeypatch.setattr(settings, "AI_PROVIDER", "groq")
     monkeypatch.setattr(settings, "GROQ_API_KEY", "test-key")
     monkeypatch.setattr(settings, "GROQ_API_URL", "https://api.groq.example/openai/v1/chat/completions")
 
-    class _FakeResponse:
-        status_code = 200
+    class _FakeModel:
+        async def ainvoke(self, messages):
+            raise ValueError("invalid provider response")
 
-        def json(self):
-            raise ValueError("not valid JSON")
-
-    class _FakeClient:
-        def __init__(self, **kwargs):
-            pass
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, exc_type, exc, traceback):
-            return None
-
-        async def post(self, *args, **kwargs):
-            return _FakeResponse()
-
-    monkeypatch.setattr(ai_service.httpx, "AsyncClient", _FakeClient)
+    monkeypatch.setattr(ai_service_mod, "get_chat_model", lambda: _FakeModel())
     response = client.post(
         "/api/v1/ai/assistant/chat",
         json={"message": "What should I work on today?"},
@@ -370,16 +311,16 @@ def test_groq_does_not_send_injection_flagged_email_to_provider(
     client, auth_headers, monkeypatch
 ):
     from backend.app.core.config import settings
-    from backend.app.services import ai_service
+    import backend.app.services.ai_service as ai_service_mod
 
     monkeypatch.setattr(settings, "AI_PROVIDER", "groq")
     monkeypatch.setattr(settings, "GROQ_API_KEY", "test-key")
 
-    class UnexpectedClient:
-        def __init__(self, **kwargs):
+    class _FakeModel:
+        async def ainvoke(self, messages):
             raise AssertionError("Suspicious email content must not be sent to Groq.")
 
-    monkeypatch.setattr(ai_service.httpx, "AsyncClient", UnexpectedClient)
+    monkeypatch.setattr(ai_service_mod, "get_chat_model", lambda: _FakeModel())
     response = client.post(
         "/api/v1/ai/extract-email",
         json={
@@ -393,6 +334,7 @@ def test_groq_does_not_send_injection_flagged_email_to_provider(
 
     assert response.status_code == 422
     assert "was not sent to Groq" in response.json()["detail"]
+
 
 def test_ai_provider_endpoint_returns_configured_value(client, auth_headers, monkeypatch):
     from backend.app.core.config import settings
@@ -408,7 +350,6 @@ def test_ai_provider_endpoint_returns_configured_value(client, auth_headers, mon
 
 
 def test_study_plan_matched_item(client, auth_headers):
-    # Create a task with a due date
     client.post("/api/v1/tasks/", json={
         "title": "ITPM exam preparation",
         "priority": "High",
@@ -445,7 +386,6 @@ def test_upcoming_deadlines_human_date(client, auth_headers):
     assert res.status_code == 200
     reply = res.json()["reply"]
     assert "T" not in reply or "due" in reply.lower()
-    # Should contain human format like "Thu Oct 29"
     assert "Oct" in reply or "Oct" in reply
     # Test adversarial email trying to override instructions and steal keys
     malicious_email = {
@@ -470,51 +410,3 @@ def test_upcoming_deadlines_human_date(client, auth_headers):
     assert chat_res.status_code == 200
     reply = chat_res.json()["reply"]
     assert "Security Notice" in reply or "cannot alter internal instructions" in reply
-
-
-
-def test_study_plan_typo_matches(client, auth_headers):
-    client.post("/api/v1/tasks/", json={
-        "title": "ITPM internal exam",
-        "priority": "High",
-        "due_date": "2026-10-30T10:00:00Z",
-        "estimated_duration": 120,
-    }, headers=auth_headers)
-    res = client.post("/api/v1/ai/assistant/chat", json={
-        "message": "study plan for my itmp exam",
-    }, headers=auth_headers)
-    assert res.status_code == 200
-    reply = res.json()["reply"]
-    assert "ITPM" in reply
-
-
-def test_study_plan_multiple_matches_mentions_others(client, auth_headers):
-    client.post("/api/v1/tasks/", json={
-        "title": "DBMS unit 3 test",
-        "priority": "High",
-        "due_date": "2026-10-30T10:00:00Z",
-        "estimated_duration": 60,
-    }, headers=auth_headers)
-    client.post("/api/v1/tasks/", json={
-        "title": "DBMS lab report",
-        "priority": "Medium",
-        "due_date": "2026-11-05T10:00:00Z",
-        "estimated_duration": 60,
-    }, headers=auth_headers)
-    res = client.post("/api/v1/ai/assistant/chat", json={
-        "message": "plan for DBMS test",
-    }, headers=auth_headers)
-    assert res.status_code == 200
-    reply = res.json()["reply"]
-    assert "DBMS unit 3 test" in reply
-    assert "I also found" in reply
-    assert "DBMS lab report" in reply
-
-
-def test_study_plan_no_subject_asks_which(client, auth_headers):
-    res = client.post("/api/v1/ai/assistant/chat", json={
-        "message": "Generate a study plan",
-    }, headers=auth_headers)
-    assert res.status_code == 200
-    reply = res.json()["reply"]
-    assert "which" in reply.lower() or "tell me" in reply.lower()

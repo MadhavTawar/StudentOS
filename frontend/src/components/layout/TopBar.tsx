@@ -164,10 +164,7 @@ export const TopBar: React.FC = () => {
               end={link.end}
               onClick={closeMenus}
               className={({ isActive }) => {
-                const isLearnActive =
-                  isActive ||
-                  pathname.startsWith('/app/knowledge') ||
-                  pathname.startsWith('/app/assistant');
+                const isLearnActive = isActive || pathname === '/app/learn';
                 return `topbar-nav-link${isLearnActive ? ' is-active' : ''}`;
               }}
             >

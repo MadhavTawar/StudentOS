@@ -14,9 +14,10 @@ are exposed to the browser.
 
 from typing import Any, Optional
 
+from fastapi import HTTPException, status
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import BaseMessage
-from langchain_core.outputs import ChatResult
+from langchain_core.messages import AIMessage, BaseMessage
+from langchain_core.outputs import ChatGeneration, ChatResult
 
 from backend.app.core.config import settings
 from backend.app.core.logging import logger
@@ -39,6 +40,7 @@ class _OfflineChatModel(BaseChatModel):
         self,
         messages: list[BaseMessage],
         stop: list[str] | None = None,
+        run_manager: Optional[Any] = None,
         **kwargs: Any,
     ) -> ChatResult:
         from langchain_core.outputs import ChatGeneration, ChatResult
@@ -57,7 +59,7 @@ class _OfflineChatModel(BaseChatModel):
             "configured Groq model, or keep offline mode for local-only "
             "operation."
         )
-        return ChatResult(generations=[ChatGeneration(message=__import__("langchain_core").AIMessage(content=reply))])
+        return ChatResult(generations=[ChatGeneration(message=AIMessage(content=reply))])
 
 
 def get_chat_model() -> BaseChatModel:
