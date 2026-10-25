@@ -31,6 +31,7 @@ export const KnowledgePage: React.FC = () => {
   const [activePanel, setActivePanel] = useState<'documents' | 'preview' | 'assistant'>('documents');
   const [rightTab, setRightTab] = useState<'ask' | 'details'>('ask');
   const [access, setAccess] = useState<KnowledgeAccess | null>(null);
+  const [aiProvider, setAiProvider] = useState<string | null>(null);
   const [turns, setTurns] = useState<KnowledgeTurn[]>([]);
   const [question, setQuestion] = useState('');
   const [isLoadingLibrary, setIsLoadingLibrary] = useState(true);
@@ -40,12 +41,13 @@ export const KnowledgePage: React.FC = () => {
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    Promise.all([api.listKnowledgeLibrary(), api.getKnowledgeAccess()])
-      .then(([items, currentAccess]) => {
+    Promise.all([api.listKnowledgeLibrary(), api.getKnowledgeAccess(), api.getAiProvider()])
+      .then(([items, currentAccess, provider]) => {
         setLibrary(items);
         setSelectedDocumentId(items[0]?.id ?? '');
         setSelectedVersionId(items[0]?.version_id ?? '');
         setAccess(currentAccess);
+        setAiProvider(provider.provider);
       })
       .catch((loadError: unknown) => setError(errorText(loadError)))
       .finally(() => setIsLoadingLibrary(false));
@@ -348,9 +350,9 @@ export const KnowledgePage: React.FC = () => {
               </form>
               <p className="knowledge-privacy-note">
                 <ShieldCheck size={14} />
-                {access?.ai_provider === 'offline'
+                {aiProvider === 'offline'
                   ? 'Questions and source matching run locally against published workspace material.'
-                  : access?.ai_provider === 'groq'
+                  : aiProvider === 'groq'
                     ? 'Your question and relevant source excerpts are sent to the configured Groq AI service.'
                     : 'Your question and relevant source excerpts are processed by the configured AI service.'}
               </p>

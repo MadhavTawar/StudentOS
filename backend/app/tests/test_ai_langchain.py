@@ -256,26 +256,139 @@ async def test_retriever_returns_empty_when_no_results(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_retriever_isolates_workspace(monkeypatch):
-    """Retriever must query the vector store with its own workspace_id only,
-    never leaking another workspace's identifier."""
+async def test_retriever_isolates_workspace_real(monkeypatch):
+    """Real vector-store isolation: chunks for workspace B must never surface
+    when workspace A searches, and vice versa (workspace_id is part of the
+    actual chromadb where-filter, not just a forwarded argument)."""
     if not _LANGCHAIN_AVAILABLE:
         pytest.skip("langchain_core not installed")
-    retriever = KnowledgeRetriever(workspace_id="ws_user_a", top_k=5)
-
+    try:
+        import chromadb  # noqa: F401
+    except ImportError:
+        pytest.skip("chromadb not installed")
     from backend.app.services import knowledge_vector_store
 
-    captured = {}
+    # Deterministic embeddings: avoid the fastembed model download / network.
+    monkeypatch.setattr(
+        knowledge_vector_store.KnowledgeVectorStore,
+        "_embed",
+        staticmethod(lambda texts: [[0.1] * 384 for _ in texts]),
+    )
 
-    class _FakeStore:
-        def search(self, query, workspace_id, limit):
-            captured["workspace_id"] = workspace_id
-            return []
+    store = knowledge_vector_store.KnowledgeVectorStore()
 
-    monkeypatch.setattr(knowledge_vector_store.KnowledgeVectorStore, "search", _FakeStore().search)
+    def _collection_ids(collection):
+        res = collection.get()
+        ids = res.get("ids") or []
+        if ids and isinstance(ids[0], list):
+            return ids[0]
+        return ids
 
-    await retriever.ainvoke("any query")
-    assert captured["workspace_id"] == "ws_user_a"
+    # Start from a clean collection so other tests' vectors do not interfere.
+    existing_ids = _collection_ids(store.collection)
+    if existing_ids:
+        store.collection.delete(ids=existing_ids)
+
+    try:
+        store.upsert_chunks(
+            [{"id": "a-1", "content": "Workspace A: attendance requires 75 percent.", "page_start": 1, "page_end": 1}],
+            document_id="doc-a", version_id="ver-a", workspace_id="ws_user_a", status_value="published",
+        )
+        store.upsert_chunks(
+            [{"id": "b-1", "content": "Workspace B: budget is confidential.", "page_start": 1, "page_end": 1}],
+            document_id="doc-b", version_id="ver-b", workspace_id="ws_user_b", status_value="published",
+        )
+
+        results_a = store.search("attendance", workspace_id="ws_user_a", limit=5)
+        contents_a = [r["content"] for r in results_a]
+        assert "Workspace A: attendance requires 75 percent." in contents_a
+        assert "Workspace B: budget is confidential." not in contents_a
+        for r in results_a:
+            assert r["metadata"].get("workspace_id") == "ws_user_a"
+
+        results_b = store.search("budget", workspace_id="ws_user_b", limit=5)
+        contents_b = [r["content"] for r in results_b]
+        assert "Workspace B: budget is confidential." in contents_b
+        assert "Workspace A: attendance requires 75 percent." not in contents_b
+    finally:
+        existing_ids = _collection_ids(store.collection)
+        if existing_ids:
+            store.collection.delete(ids=existing_ids)
+
+
+@pytest.mark.asyncio
+async def test_complete_binds_response_format(monkeypatch):
+    """When json_response=True, GroqAIProvider._complete must forward
+    response_format: {"type": "json_object"} to the chat model's bind()."""
+    if not _LANGCHAIN_AVAILABLE:
+        pytest.skip("langchain_core not installed")
+    from backend.app.core.config import settings
+    import backend.app.services.ai_service as ai_service_mod
+    from backend.app.services.ai_service import GroqAIProvider
+
+    monkeypatch.setattr(settings, "AI_PROVIDER", "groq")
+    monkeypatch.setattr(settings, "GROQ_API_KEY", "test-key")
+    monkeypatch.setattr(settings, "GROQ_MODEL", "test-model")
+    monkeypatch.setattr(
+        settings, "GROQ_API_URL", "https://api.groq.example/openai/v1/chat/completions"
+    )
+
+    class _FakeBoundModel:
+        bind_kwargs = None
+
+        def bind(self, **kwargs):
+            _FakeBoundModel.bind_kwargs = kwargs
+            return self
+
+        async def ainvoke(self, messages):
+            class _Result:
+                def __init__(self, content):
+                    self.content = content
+            return _Result("ok")
+
+    monkeypatch.setattr(ai_service_mod, "get_chat_model", lambda: _FakeBoundModel())
+
+    provider = GroqAIProvider()
+    result = await provider._complete(
+        [{"role": "user", "content": "Extract tasks as JSON."}], json_response=True
+    )
+    assert result == "ok"
+    assert _FakeBoundModel.bind_kwargs == {"response_format": {"type": "json_object"}}
+
+
+@pytest.mark.asyncio
+async def test_complete_without_json_response_does_not_bind(monkeypatch):
+    """When json_response=False, bind() must not be called with response_format."""
+    if not _LANGCHAIN_AVAILABLE:
+        pytest.skip("langchain_core not installed")
+    from backend.app.core.config import settings
+    import backend.app.services.ai_service as ai_service_mod
+    from backend.app.services.ai_service import GroqAIProvider
+
+    monkeypatch.setattr(settings, "AI_PROVIDER", "groq")
+    monkeypatch.setattr(settings, "GROQ_API_KEY", "test-key")
+
+    class _FakeBoundModel:
+        bind_kwargs = None
+
+        def bind(self, **kwargs):
+            _FakeBoundModel.bind_kwargs = kwargs
+            return self
+
+        async def ainvoke(self, messages):
+            class _Result:
+                def __init__(self, content):
+                    self.content = content
+            return _Result("ok")
+
+    monkeypatch.setattr(ai_service_mod, "get_chat_model", lambda: _FakeBoundModel())
+
+    provider = GroqAIProvider()
+    result = await provider._complete(
+        [{"role": "user", "content": "Just answer."}], json_response=False
+    )
+    assert result == "ok"
+    assert _FakeBoundModel.bind_kwargs is None or "response_format" not in _FakeBoundModel.bind_kwargs
 
 
 @pytest.mark.asyncio

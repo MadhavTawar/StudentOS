@@ -79,7 +79,9 @@
   background: var(--bg-card);
   border: 1px solid var(--border-card);
   border-radius: var(--radius-lg);
+  min-height: 0;
   min-width: 0;
+  overflow: auto;
   padding: 0.9rem;
 }
 
@@ -111,7 +113,7 @@
   border: 1px solid var(--border-card);
   border-radius: 10px;
   background: var(--bg-card);
-  display: flex;
+  display: none;
   gap: 0.3rem;
   padding: 0.25rem;
 }
@@ -327,6 +329,15 @@
 
 .learn-empty-chat span {
   font-size: 0.78rem;
+}
+
+.learn-turn-label {
+  color: var(--text-muted);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  margin-bottom: 0.3rem;
+  text-transform: uppercase;
 }
 
 .learn-turn {
@@ -548,7 +559,7 @@
   text-transform: uppercase;
 }
 
-@media (max-width: 850px) {
+@media (max-width: 900px) {
   .learn-mobile-tabs {
     align-items: center;
     border: 1px solid var(--border-card);
