@@ -146,15 +146,35 @@ export const LearnPage: React.FC = () => {
     setIsAsking(true);
     setChatError('');
     setQuestion('');
+
+    const taskPhrase = isStudentOsTaskQuestion(prompt);
+    const hasPublishedDocs = library.length > 0;
+
     try {
-      // Always try documents first.
+      // Skip the documents call entirely when there are no published documents
+      // (the library list is already loaded). A task-phrase question must never
+      // wait on embeddings when there are no documents.
+      if (!hasPublishedDocs) {
+        if (taskPhrase) {
+          const assistant = await api.chatAssistant(prompt);
+          setTurns((previous) => [
+            ...previous,
+            { question: prompt, source: 'studentos', assistant: { reply: assistant.reply, provider: assistant.provider } },
+          ]);
+        } else {
+          setChatError('Documents are unavailable right now — try again later.');
+        }
+        return;
+      }
+
+      // Always try documents first when docs exist.
       const result = await api.chatWithKnowledge(prompt);
       const hasDocumentEvidence =
         result && !result.insufficient_evidence && result.answer && result.answer.trim().length > 0;
 
       // Use the StudentOS-data path only when the question matches whole-word
       // task/deadline/goal phrases AND there is no document evidence.
-      if (isStudentOsTaskQuestion(prompt) && !hasDocumentEvidence) {
+      if (taskPhrase && !hasDocumentEvidence) {
         const assistant = await api.chatAssistant(prompt);
         setTurns((previous) => [
           ...previous,
@@ -163,9 +183,22 @@ export const LearnPage: React.FC = () => {
       } else {
         setTurns((previous) => [...previous, { question: prompt, source: 'documents', knowledge: result }]);
       }
-    } catch (requestError) {
-      setChatError(errorText(requestError));
-      setQuestion(prompt);
+    } catch {
+      // Documents call failed (network error, 503 embedding unavailable, etc.):
+      // fall back to the assistant for task phrases, otherwise show a clear error.
+      if (taskPhrase) {
+        try {
+          const assistant = await api.chatAssistant(prompt);
+          setTurns((previous) => [
+            ...previous,
+            { question: prompt, source: 'studentos', assistant: { reply: assistant.reply, provider: assistant.provider } },
+          ]);
+        } catch (assistantError) {
+          setChatError(errorText(assistantError));
+        }
+      } else {
+        setChatError('Documents are unavailable right now — try again later.');
+      }
     } finally {
       setIsAsking(false);
       inputRef.current?.focus();

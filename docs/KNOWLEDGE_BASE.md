@@ -28,7 +28,7 @@ Scanned PDFs without a text layer are unsupported; no OCR is provided. DOCX cita
 ## Data and configuration
 
 | Setting | Default | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `KNOWLEDGE_STORAGE_DIR` | `~/.studentos/knowledge` | Private uploaded source files |
 | `KNOWLEDGE_VECTOR_DIR` | `~/.studentos/chroma` | Persistent Chroma index |
 | `KNOWLEDGE_MAX_UPLOAD_BYTES` | `15728640` | Maximum file size (15 MiB) |
