@@ -10,7 +10,9 @@ Run with:
 """
 import os
 import uuid
+from datetime import timezone
 import pytest
+import requests
 
 try:
     from playwright.sync_api import Page, expect
@@ -25,14 +27,29 @@ E2E_BASE = os.environ.get("E2E_BASE_URL", "http://127.0.0.1:5173")
 E2E_API = os.environ.get("E2E_API_URL", "http://127.0.0.1:8000")
 
 
+def _register_with_retry(api_url, email, password, full_name="Planner Tester", retries=3, delay=60):
+    """Register a user, retrying on 429 rate limit."""
+    import time
+    # Proactively space registrations to stay under the 5/minute rate limit.
+    time.sleep(12)
+    for attempt in range(retries):
+        res = requests.post(f"{api_url}/api/v1/auth/register", json={
+            "full_name": full_name,
+            "email": email,
+            "password": password,
+        }, timeout=30)
+        if res.status_code in (200, 201):
+            return res
+        if res.status_code == 429 and attempt < retries - 1:
+            time.sleep(delay)
+            continue
+        res.raise_for_status()
+    return res
+
+
 def _register_and_login(page: Page, api_url: str, email: str, password: str) -> None:
     """Register a demo user via API, then log in via the browser."""
-    requests_post = __import__("requests").post
-    requests_post(f"{api_url}/api/v1/auth/register", json={
-        "full_name": "Planner Tester",
-        "email": email,
-        "password": password,
-    }, timeout=30)
+    _register_with_retry(api_url, email, password)
 
     page.goto(f"{E2E_BASE}/login")
     page.get_by_label("Email address").fill(email)
@@ -46,7 +63,7 @@ def _create_sample_tasks(api_url: str, session) -> None:
     import datetime
     now = datetime.datetime.now(timezone.utc)
     today = now.strftime("%Y-%m-%dT%H:%M:%SZ")
-    tomorrow = (now + datetime.timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    tomorrow = (now + datetime.timedelta(days=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
     yesterday = (now - datetime.timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     tasks = [
@@ -99,7 +116,7 @@ def test_planner_today_view(page: Page, base_url, api_url) -> None:
     page.wait_for_selector(".task-row", timeout=15000)
 
     # Click Today filter
-    page.get_by_role("button", name="Today").click()
+    page.get_by_role("button", name="Today view", exact=True).click()
     page.wait_for_timeout(1000)
 
     # All visible task rows should be due today
@@ -132,7 +149,7 @@ def test_planner_overdue_view(page: Page, base_url, api_url) -> None:
     page.wait_for_selector(".task-row", timeout=15000)
 
     # Click Overdue filter
-    page.get_by_role("button", name="Overdue").click()
+    page.get_by_role("button", name="Overdue tasks view", exact=True).click()
     page.wait_for_timeout(1000)
 
     task_rows = page.locator(".task-row")
@@ -160,7 +177,7 @@ def test_planner_completed_view(page: Page, base_url, api_url) -> None:
     page.wait_for_selector(".task-row", timeout=15000)
 
     # Click Completed filter
-    page.get_by_role("button", name="Completed").click()
+    page.get_by_role("button", name="Completed tasks view", exact=True).click()
     page.wait_for_timeout(1000)
 
     task_rows = page.locator(".task-row")
@@ -188,7 +205,7 @@ def test_planner_day_view(page: Page, base_url, api_url) -> None:
     page.wait_for_selector(".planner-calendar-day", timeout=15000)
 
     # Click Day view
-    page.get_by_role("button", name="Day").click()
+    page.get_by_role("button", name="Day view", exact=True).click()
     page.wait_for_timeout(1000)
 
     # Should see day view with date
@@ -215,7 +232,7 @@ def test_planner_upcoming_view(page: Page, base_url, api_url) -> None:
     page.wait_for_selector(".task-row", timeout=15000)
 
     # Click Upcoming filter
-    page.get_by_role("button", name="Upcoming").click()
+    page.get_by_role("button", name="Upcoming tasks view", exact=True).click()
     page.wait_for_timeout(1000)
 
     task_rows = page.locator(".task-row")

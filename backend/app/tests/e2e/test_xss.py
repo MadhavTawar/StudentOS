@@ -12,13 +12,29 @@ import requests
 pytestmark = pytest.mark.e2e
 
 
+def _register_with_retry(api_url, email, password, full_name="XSS Tester", retries=3, delay=60):
+    """Register a user, retrying on 429 rate limit."""
+    import time
+    # Proactively space registrations to stay under the 5/minute rate limit.
+    time.sleep(12)
+    for attempt in range(retries):
+        res = requests.post(f"{api_url}/api/v1/auth/register", json={
+            "full_name": full_name,
+            "email": email,
+            "password": password,
+        }, timeout=30)
+        if res.status_code in (200, 201):
+            return res
+        if res.status_code == 429 and attempt < retries - 1:
+            time.sleep(delay)
+            continue
+        res.raise_for_status()
+    return res
+
+
 def _register_and_login(api_url, page, email, password):
     # Register
-    requests.post(f"{api_url}/api/v1/auth/register", json={
-        "full_name": "XSS Tester",
-        "email": email,
-        "password": password,
-    }, timeout=30)
+    _register_with_retry(api_url, email, password)
     # Login via browser to set cookie
     page.goto(os.environ.get("E2E_BASE_URL", "http://127.0.0.1:5173") + "/login")
     page.get_by_label("Email address").fill(email)
