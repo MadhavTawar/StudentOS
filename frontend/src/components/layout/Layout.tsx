@@ -13,6 +13,8 @@ export const Layout: React.FC = () => {
     pathname.startsWith('/app/assistant') ||
     pathname.startsWith('/app/learn');
 
+  const isLearnRoute = pathname === '/app/learn' || pathname.startsWith('/app/learn/');
+
   useEffect(() => {
     if (!isAuthenticated) {
       document.documentElement.dataset.theme = 'light';
@@ -62,7 +64,7 @@ export const Layout: React.FC = () => {
   }
 
   return (
-    <div className={`app-shell${isWorkspaceShell ? ' app-shell-workspace' : ' app-shell-study'}`}>
+    <div className={`app-shell${isWorkspaceShell ? ' app-shell-workspace' : ' app-shell-study'}${isLearnRoute ? ' app-shell-learn' : ''}`}>
       <div className="app-content">
         <TopBar />
         <main className="app-main">
