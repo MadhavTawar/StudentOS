@@ -31,21 +31,36 @@ interface DocumentPreview {
 const errorText = (error: unknown) =>
   error instanceof Error ? error.message : 'Please check that the StudentOS service is available.';
 
-// Heuristic: route schedule/task/deadline/goal questions to the assistant endpoint,
-// everything else to the document-grounded knowledge endpoint.
-const isStudentOsQuestion = (prompt: string) => {
+// Whole-word match for task/deadline/goal phrases. These questions are
+// candidates for the StudentOS-data path, but only when documents have no evidence.
+const isStudentOsTaskQuestion = (prompt: string) => {
   const lower = prompt.toLowerCase();
+
+  const wordBoundary = (word: string) => {
+    const regex = new RegExp('\\b' + word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b');
+    return regex.test(lower);
+  };
+
   return (
-    lower.includes('task') ||
-    lower.includes('deadline') ||
-    lower.includes('goal') ||
-    lower.includes('homework') ||
-    lower.includes('assignment') ||
-    lower.includes('exam') ||
-    lower.includes('due') ||
+    wordBoundary('task') ||
+    wordBoundary('tasks') ||
+    wordBoundary('deadline') ||
+    wordBoundary('deadlines') ||
+    wordBoundary('goal') ||
+    wordBoundary('goals') ||
+    wordBoundary('homework') ||
+    wordBoundary('assignment') ||
+    wordBoundary('assignments') ||
+    wordBoundary('exam') ||
+    wordBoundary('exams') ||
+    wordBoundary('due') ||
+    wordBoundary('overdue') ||
+    wordBoundary('schedule') ||
     lower.includes('study plan') ||
     lower.includes('work on') ||
-    lower.includes('schedule')
+    lower.includes('my tasks') ||
+    lower.includes('what should i work on') ||
+    lower.includes('due this week')
   );
 };
 
@@ -132,14 +147,20 @@ export const LearnPage: React.FC = () => {
     setChatError('');
     setQuestion('');
     try {
-      if (isStudentOsQuestion(prompt)) {
+      // Always try documents first.
+      const result = await api.chatWithKnowledge(prompt);
+      const hasDocumentEvidence =
+        result && !result.insufficient_evidence && result.answer && result.answer.trim().length > 0;
+
+      // Use the StudentOS-data path only when the question matches whole-word
+      // task/deadline/goal phrases AND there is no document evidence.
+      if (isStudentOsTaskQuestion(prompt) && !hasDocumentEvidence) {
         const assistant = await api.chatAssistant(prompt);
         setTurns((previous) => [
           ...previous,
           { question: prompt, source: 'studentos', assistant: { reply: assistant.reply, provider: assistant.provider } },
         ]);
       } else {
-        const result = await api.chatWithKnowledge(prompt);
         setTurns((previous) => [...previous, { question: prompt, source: 'documents', knowledge: result }]);
       }
     } catch (requestError) {
@@ -384,7 +405,7 @@ export const LearnPage: React.FC = () => {
             {aiProvider === 'offline'
               ? 'Questions and source matching run locally against published workspace material.'
               : aiProvider === 'groq'
-                ? 'Your question and relevant source excerpts are sent to the configured Groq AI service.'
+                ? 'Your question and relevant source excerpts are sent to the configured Groq AI service — content leaves the server.'
                 : 'Your question and relevant source excerpts are processed by the configured AI service.'}
           </p>
         </section>

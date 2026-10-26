@@ -3358,3 +3358,18 @@ main > section > h1 {
   line-height: 1.6;
   margin: 0;
 }
+
+.app-shell-learn .app-main {
+  overflow: hidden;
+}
+
+.app-shell-learn .learn-layout {
+  height: 100%;
+  overflow: hidden;
+}
+
+.app-shell-learn .learn-chat-panel,
+.app-shell-learn .learn-documents-panel,
+.app-shell-learn .learn-reader-panel {
+  overflow-y: auto;
+}
