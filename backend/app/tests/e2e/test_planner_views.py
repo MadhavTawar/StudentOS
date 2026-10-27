@@ -95,7 +95,9 @@ def _take_screenshots(page: Page, suffix: str) -> None:
             page.evaluate("() => { document.documentElement.dataset.theme = 'dark'; }")
         else:
             page.evaluate("() => { document.documentElement.dataset.theme = 'light'; }")
-        page.screenshot(path=f"tests/e2e/screenshots/planner_{suffix}_{width}_{theme}.png", full_page=True)
+        screenshot_dir = os.path.join(os.path.dirname(__file__), "_artifacts")
+        os.makedirs(screenshot_dir, exist_ok=True)
+        page.screenshot(path=os.path.join(screenshot_dir, f"planner_{suffix}_{width}_{theme}.png"), full_page=True)
 
 
 def test_planner_today_view(page: Page, base_url, api_url) -> None:

@@ -56,6 +56,7 @@ yarn-error.log*
 htmlcov/
 .oxlint_cache/
 *.tsbuildinfo
+backend/app/tests/e2e/_artifacts/
 
 # IDE & OS
 .vscode/

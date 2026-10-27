@@ -46,6 +46,11 @@ Notes:
 - Login is rate-limited to 5 attempts/minute; tests register a fresh user and log in once.
 - Cookie-authenticated writes need an `Origin: http://127.0.0.1:5173` header.
 - The XSS test creates a task with HTML in its title and verifies it renders as text.
+- Tests that publish a real document (`test_learn_chat_give_example_deadlock` and
+  `test_learn_chat_citation_check`) require the `BAAI/bge-small-en-v1.5` embedding
+  model to be downloaded once (via fastembed). On first run with internet access,
+  the model is cached to `~/.cache/huggingface/hub`. Without it, those tests are
+  skipped with a clear message.
 
 ## Frontend checks
 

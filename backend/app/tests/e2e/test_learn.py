@@ -30,6 +30,22 @@ E2E_API = os.environ.get("E2E_API_URL", "http://127.0.0.1:8000")
 E2E_COOKIE_DOMAIN = urlparse(E2E_BASE).hostname or "localhost"
 
 
+def _embedding_model_available() -> bool:
+    """Return True if the BAAI/bge-small-en-v1.5 embedding model can be loaded."""
+    try:
+        from fastembed import TextEmbedding
+        TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
+        return True
+    except Exception:
+        return False
+
+
+embedding_model_required = pytest.mark.skipif(
+    not _embedding_model_available(),
+    reason="embedding model unavailable; run once with internet access",
+)
+
+
 def _register_with_retry(api_url, email, password, origin, full_name="Learn Tester", retries=3, delay=60):
     """Register a user, retrying on 429 rate limit."""
     import time
@@ -147,6 +163,7 @@ def test_learn_chat_what_is_due_this_week(logged_in_page: Page, base_url: str) -
     assert _turn_label(page) == "From your StudentOS data", _turn_label(page)
 
 
+@embedding_model_required
 def test_learn_chat_give_example_deadlock(page: Page, base_url: str, api_url: str) -> None:
     """'Give an example of deadlock' routes to the documents path.
 
@@ -209,6 +226,79 @@ def test_learn_chat_give_example_deadlock(page: Page, base_url: str, api_url: st
     _ask(page, "Give an example of deadlock")
     page.wait_for_selector(".learn-turn", timeout=30000)
     assert _turn_label(page) == "From your documents", _turn_label(page)
+
+
+@embedding_model_required
+def test_learn_chat_citation_check(page: Page, base_url: str, api_url: str) -> None:
+    """Citation chip shows 'Deadlock Primer' and clicking it opens the reader."""
+    email = f"cite_{uuid.uuid4().hex[:8]}@example.com"
+    password = "TestPass123!"
+
+    # Register and log in via API to get session cookies.
+    _register_with_retry(api_url, email, password, base_url, full_name="Citation Tester")
+    sess = requests.Session()
+    login_res = sess.post(f"{api_url}/api/v1/auth/login", json={
+        "email": email,
+        "password": password,
+    }, headers={"Origin": base_url}, timeout=30)
+    assert login_res.status_code == 200, login_res.text
+
+    # Upload and publish a document so the knowledge endpoint has evidence.
+    import io
+    import fitz  # pymupdf (runtime dependency in backend/requirements.txt)
+    pdf_buffer = io.BytesIO()
+    doc = fitz.open()
+    pdf_page = doc.new_page()
+    pdf_page.insert_text((72, 720), "Deadlock occurs when two processes wait for each other to release resources.")
+    doc.save(pdf_buffer)
+    doc.close()
+    pdf_buffer.seek(0)
+    upload_res = sess.post(f"{api_url}/api/v1/knowledge/documents", files={
+        "file": ("deadlock.pdf", pdf_buffer.read(), "application/pdf"),
+    }, data={
+        "title": "Deadlock Primer",
+        "description": "An introduction to deadlock.",
+        "category": "Operating Systems",
+    }, headers={"Origin": base_url}, timeout=30)
+    assert upload_res.status_code in (200, 201), upload_res.text
+    document = upload_res.json()
+    document_id = document["id"]
+    version_id = document["versions"][0]["id"]
+
+    publish_res = sess.post(
+        f"{api_url}/api/v1/knowledge/documents/{document_id}/versions/{version_id}/publish",
+        headers={"Origin": base_url}, timeout=30,
+    )
+    assert publish_res.status_code in (200, 201), publish_res.text
+
+    # Transfer session cookies into the browser.
+    cookies = []
+    for cookie in sess.cookies:
+        cookies.append({
+            "name": cookie.name,
+            "value": cookie.value,
+            "domain": E2E_COOKIE_DOMAIN,
+            "path": "/",
+        })
+    page.context.add_cookies(cookies)
+    page.goto(f"{base_url}/app", wait_until="load")
+    page.wait_for_url("**/app**", timeout=15000)
+
+    _ask(page, "Give an example of deadlock")
+    page.wait_for_selector(".learn-turn", timeout=30000)
+    assert _turn_label(page) == "From your documents", _turn_label(page)
+
+    # Citation chip for "Deadlock Primer" should be visible.
+    citations = page.locator(".learn-citations")
+    expect(citations).to_be_visible()
+    expect(citations).to_contain_text("Deadlock Primer")
+
+    # Clicking "Open cited document" should open the reader panel.
+    # Expand the citation details first (native <details>/<summary>).
+    page.locator(".learn-citation summary").first.click()
+    page.get_by_role("button", name="Open cited source Deadlock Primer").click()
+    expect(page.locator(".learn-layout")).to_have_attribute("data-active-panel", "reader")
+    expect(page.locator("#learn-panel-reader")).to_be_visible()
 
 
 def test_learn_chat_summarize_exam_syllabus(logged_in_page: Page, base_url: str) -> None:
