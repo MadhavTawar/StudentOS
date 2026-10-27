@@ -167,11 +167,13 @@ def test_learn_chat_give_example_deadlock(page: Page, base_url: str, api_url: st
 
     # Upload and publish a document so the knowledge endpoint has evidence.
     import io
-    from reportlab.pdfgen import canvas
+    import fitz  # pymupdf (runtime dependency in backend/requirements.txt)
     pdf_buffer = io.BytesIO()
-    c = canvas.Canvas(pdf_buffer)
-    c.drawString(72, 720, "Deadlock occurs when two processes wait for each other to release resources.")
-    c.save()
+    doc = fitz.open()
+    pdf_page = doc.new_page()
+    pdf_page.insert_text((72, 720), "Deadlock occurs when two processes wait for each other to release resources.")
+    doc.save(pdf_buffer)
+    doc.close()
     pdf_buffer.seek(0)
     upload_res = sess.post(f"{api_url}/api/v1/knowledge/documents", files={
         "file": ("deadlock.pdf", pdf_buffer.read(), "application/pdf"),
