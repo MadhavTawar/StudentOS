@@ -1157,12 +1157,20 @@ class AIService:
     ) -> AIAssistantResponse:
         """
         Conversational assistant querying authenticated user's tasks & deadlines with bounded retrieval.
+        Orchestrated via LangGraph agent (agent.py); falls back to the rule-based
+        OfflineRuleBasedProvider when AI_PROVIDER=offline.
         """
-        from backend.app.services.due_items import get_due_items
-        from backend.app.services.prioritization import rank_items
+        from backend.app.ai.agent import run_agent
+        from backend.app.models.user import User
+        from backend.app.services.workspace_service import get_current_workspace
 
         user_tz = "UTC"
+        workspace_id = None
         try:
+            user = db.query(User).filter(User.id == user_id).first()
+            if user:
+                workspace = get_current_workspace(db, user, None)
+                workspace_id = workspace.id
             from backend.app.models.user import UserPreference
             pref = db.query(UserPreference).filter(UserPreference.user_id == user_id).first()
             if pref and pref.timezone:
@@ -1170,41 +1178,11 @@ class AIService:
         except Exception:
             pass
 
-        due_items = get_due_items(db, user_id, include_completed=False)
-        item_dicts = [
-            {
-                "id": it.id,
-                "title": it.title,
-                "due_date": it.due_date.isoformat() if it.due_date else None,
-                "priority": it.priority or "Medium",
-                "status": it.status,
-                "estimated_duration": it.estimated_duration,
-                "kind": it.kind,
-            }
-            for it in due_items
-        ]
-        ranked = rank_items(item_dicts, datetime.now(timezone.utc))
-        top_pending = ranked[:15]
-        events = [r for r in ranked if r.kind == "deadline"][:10]
-
-        tasks_ctx = [{"title": r.title, "priority": r.priority, "status": r.status,
-                      "due_date": r.due_date.isoformat() if r.due_date else None,
-                      "reason": r.reason, "estimated_duration": r.estimated_duration} for r in top_pending]
-        deadlines_ctx = [{"title": r.title, "due_date": r.due_date.isoformat() if r.due_date else None,
-                          "reason": r.reason} for r in events]
-
-        context = {
-            "tasks": tasks_ctx,
-            "deadlines": deadlines_ctx,
-            "ranked": [{"title": r.title, "reason": r.reason} for r in ranked[:10]],
-            "timezone": user_tz,
-        }
-
-        provider = AIService.get_provider()
-        reply = await provider.assistant_chat(user_message, context)
+        result = await run_agent(user_id, workspace_id or user_id, user_message, db)
 
         return AIAssistantResponse(
-            reply=reply,
-            context_summary={"tasks_count": len(tasks_ctx), "deadlines_count": len(deadlines_ctx)},
+            reply=result["reply"],
+            context_summary={"tasks_count": len(result.get("tool_results", {}).get("tasks", [])),
+                             "deadlines_count": len(result.get("tool_results", {}).get("deadlines", []))},
             provider=settings.AI_PROVIDER
         )

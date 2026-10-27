@@ -8,16 +8,33 @@ respect workspace isolation.
 
 from typing import Any, Dict, List, Optional
 
+from sqlalchemy.orm import Session
+
 from backend.app.services.due_items import get_due_items
 from backend.app.services.knowledge_vector_store import KnowledgeVectorStore
 
 
-def list_upcoming_deadlines(user_id: str, workspace_id: str, limit: int = 5) -> List[Dict[str, Any]]:
+def list_tasks(db: Session, user_id: str, workspace_id: str, limit: int = 10) -> List[Dict[str, Any]]:
+    """Return pending tasks for a user in a workspace."""
+    items = get_due_items(db, user_id, include_completed=False, kind="task")
+    return [
+        {
+            "id": item.id,
+            "title": item.title,
+            "due_date": item.due_date.isoformat() if item.due_date else None,
+            "priority": item.priority,
+            "estimated_duration": item.estimated_duration,
+        }
+        for item in items[:limit]
+    ]
+
+
+def list_upcoming_deadlines(db: Session, user_id: str, workspace_id: str, limit: int = 5) -> List[Dict[str, Any]]:
     """Return upcoming deadlines for a user in a workspace.
 
     Only deadlines that are not completed and have a due date are returned.
     """
-    items = get_due_items(None, user_id, include_completed=False, kind="deadline")
+    items = get_due_items(db, user_id, include_completed=False, kind="deadline")
     # TODO: filter by workspace_id once deadlines carry workspace context
     return [
         {
@@ -31,22 +48,7 @@ def list_upcoming_deadlines(user_id: str, workspace_id: str, limit: int = 5) -> 
     ]
 
 
-def list_tasks(user_id: str, workspace_id: str, limit: int = 10) -> List[Dict[str, Any]]:
-    """Return pending tasks for a user in a workspace."""
-    items = get_due_items(None, user_id, include_completed=False, kind="task")
-    return [
-        {
-            "id": item.id,
-            "title": item.title,
-            "due_date": item.due_date.isoformat() if item.due_date else None,
-            "priority": item.priority,
-            "estimated_duration": item.estimated_duration,
-        }
-        for item in items[:limit]
-    ]
-
-
-def goal_progress(user_id: str, workspace_id: str) -> List[Dict[str, Any]]:
+def goal_progress(db: Session, user_id: str, workspace_id: str) -> List[Dict[str, Any]]:
     """Return goal progress for a user.
 
     Placeholder: goals progress is computed client-side from tasks/deadlines
@@ -55,7 +57,7 @@ def goal_progress(user_id: str, workspace_id: str) -> List[Dict[str, Any]]:
     return []
 
 
-def search_authorized_documents(user_id: str, workspace_id: str, query: str, limit: int = 5) -> List[Dict[str, Any]]:
+def search_authorized_documents(db: Session, user_id: str, workspace_id: str, query: str, limit: int = 5) -> List[Dict[str, Any]]:
     """Search authorized workspace documents via the vector store.
 
     Returns citation-ready chunks with document metadata.
@@ -82,7 +84,7 @@ def search_authorized_documents(user_id: str, workspace_id: str, query: str, lim
     ]
 
 
-def available_study_time(user_id: str, workspace_id: str, date: str) -> Dict[str, Any]:
+def available_study_time(db: Session, user_id: str, workspace_id: str, date: str) -> Dict[str, Any]:
     """Return available study time for a user on a given date.
 
     Placeholder: computes available study time from existing tasks and

@@ -30,7 +30,7 @@ StudentOS helps students organize coursework, deadlines, study plans, reminders,
 
 | Layer | Technologies |
 | --- | --- |
-| **Frontend** | React 19, TypeScript, Vite 8, responsive StudentOS design system, Lucide React, React Router v7 |
+| **Frontend** | Vanilla HTML, CSS, and JavaScript (ES modules), Vite 8, responsive StudentOS design system, inline SVG icons |
 | **Backend** | Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2.0, SQLite (local development); workspace membership and library access are validated server-side |
 | **Security** | Bcrypt password hashing, database-revocable JWT sessions, Fernet token encryption (AES-128-CBC + HMAC-SHA256), HttpOnly cookies, CORS whitelisting, CSRF state verification |
 | **AI Layer** | Offline rule-based assistant and local FastEmbed embeddings by default; optional Groq chat-completions provider |
@@ -69,7 +69,7 @@ Put the first generated value in `SECRET_KEY` and the second in `ENCRYPTION_KEY`
 
 ```powershell
 cd frontend
-npm ci
+npm install
 cd ..
 ```
 
@@ -178,7 +178,7 @@ Or directly via pytest:
 .\.venv\Scripts\pytest -o pythonpath=. -v backend/app/tests
 ```
 
-The backend test suite uses an isolated in-memory SQLite database and mocked Gmail OAuth. There is no frontend test runner configured yet; `npm run build` checks TypeScript compilation and the production bundle.
+The backend test suite uses an isolated in-memory SQLite database and mocked Gmail OAuth. There is no frontend test runner configured yet; `npm run build` checks the production bundle and `npm run lint` runs ESLint.
 
 GitHub Actions also runs the backend suite and frontend install, production build, and lint checks on every push and pull request.
 
