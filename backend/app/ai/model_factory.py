@@ -43,7 +43,6 @@ class _OfflineChatModel(BaseChatModel):
         run_manager: Optional[Any] = None,
         **kwargs: Any,
     ) -> ChatResult:
-        from langchain_core.outputs import ChatGeneration, ChatResult
 
         last_user = ""
         for m in reversed(messages):

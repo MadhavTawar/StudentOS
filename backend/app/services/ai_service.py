@@ -245,9 +245,6 @@ def _next_occurrence_date(now_local: datetime, month: int, day: int, zone: ZoneI
 
 # --- Prompt Injection Defense Patterns ---
 
-
-# --- Prompt Injection Defense Patterns ---
-
 INJECTION_PATTERNS = [
     re.compile(r"ignore\s+(all\s+)?(previous|prior|above)\s+instructions?", re.IGNORECASE),
     re.compile(r"system\s+prompt", re.IGNORECASE),
@@ -300,7 +297,6 @@ GENERIC_STUDY_PLAN_WORDS = {
 
 
 def _human_date(iso: str, tz: str = "UTC") -> str:
-    from datetime import datetime
     from zoneinfo import ZoneInfo
     try:
         zone = ZoneInfo(tz)
@@ -547,7 +543,6 @@ class OfflineRuleBasedProvider(BaseAIProvider):
         if "today" in lower_msg or "work on" in lower_msg or "should i" in lower_msg:
             pending = [t for t in tasks if t.get("status") in ("Pending", "In Progress")]
             # filter to today
-            from datetime import datetime, timezone
             today = datetime.now(timezone.utc).date().isoformat()
             today_items = [t for t in pending if t.get("due_date") and t["due_date"][:10] == today]
             if not today_items:
@@ -558,7 +553,6 @@ class OfflineRuleBasedProvider(BaseAIProvider):
             return f"Here is what you should focus on:\n{lines}"
 
         elif "tomorrow" in lower_msg:
-            from datetime import datetime, timezone, timedelta
             tomorrow = (datetime.now(timezone.utc) + timedelta(days=1)).date().isoformat()
             pending = [t for t in tasks if t.get("status") in ("Pending", "In Progress")]
             tomorrow_items = [t for t in pending if t.get("due_date") and t["due_date"][:10] == tomorrow]
@@ -659,7 +653,6 @@ class OfflineRuleBasedProvider(BaseAIProvider):
             # build plan (existing logic)
             due = matched.get("due_date")
             if due:
-                from datetime import datetime, timezone, timedelta
                 try:
                     due_dt = datetime.fromisoformat(str(due).replace("Z", "+00:00"))
                 except (ValueError, TypeError):
