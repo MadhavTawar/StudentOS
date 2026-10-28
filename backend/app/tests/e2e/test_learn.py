@@ -138,6 +138,19 @@ def test_learn_mobile_tab_bar(logged_in_page: Page, base_url: str) -> None:
     expect(page.locator(".learn-mobile-tabs")).to_be_visible()
 
 
+def test_learn_async_load_updates_mounted_page(logged_in_page: Page, base_url: str) -> None:
+    """The async library response updates the mounted Learn page in place."""
+    page = logged_in_page
+    page.goto(f"{base_url}/app/learn", wait_until="load")
+
+    loading = page.get_by_text("Loading the published library…")
+    expect(loading).to_be_hidden(timeout=15000)
+    expect(page.locator(".learn-page")).to_have_count(1)
+
+    page.get_by_role("tab", name="Chat").click()
+    expect(page.locator(".learn-layout")).to_have_attribute("data-active-panel", "chat")
+
+
 def test_learn_provider_notice_groq(logged_in_page: Page, base_url: str) -> None:
     """Provider notice reflects GET /api/v1/ai/provider (groq => content leaves the server)."""
     page = logged_in_page

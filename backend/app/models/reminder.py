@@ -64,3 +64,28 @@ class AutoReminderLog(Base):
     __table_args__ = (
         Index("idx_auto_reminder_unique", "item_id", "item_kind", "stage", unique=True),
     )
+
+
+class EmailDelivery(Base):
+    """Durable outbound delivery state for one user/item/reminder stage."""
+    __tablename__ = "email_deliveries"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    item_id = Column(String(36), nullable=False, index=True)
+    item_kind = Column(String(16), nullable=False)
+    stage = Column(String(16), nullable=False)
+    subject = Column(String(255), nullable=False)
+    message = Column(Text, nullable=False)
+    status = Column(String(32), default="Pending", nullable=False)
+    attempts = Column(Integer, default=0, nullable=False)
+    next_attempt_at = Column(DateTime(timezone=True), nullable=False, index=True)
+    provider = Column(String(32), nullable=True)
+    provider_message_id = Column(String(255), nullable=True)
+    last_error = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+    sent_at = Column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index("idx_email_delivery_unique", "user_id", "item_id", "item_kind", "stage", unique=True),
+    )

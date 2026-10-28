@@ -45,7 +45,7 @@ export function render() {
   function fetchPlanner() {
     isLoading = true;
     error = null;
-    render();
+    renderPage();
     const q1 = new URLSearchParams();
     if (eventTypeFilter) q1.append('event_type', eventTypeFilter);
     if (statusFilter) q1.append('status', statusFilter);
@@ -54,12 +54,12 @@ export function render() {
         deadlines = dList;
         tasks = tList;
         isLoading = false;
-        render();
+        renderPage();
       })
       .catch((err) => {
         error = err.message || 'Failed to load planner.';
         isLoading = false;
-        render();
+        renderPage();
       });
   }
 
@@ -68,7 +68,7 @@ export function render() {
     title = ''; description = ''; eventType = 'Assignment'; dueDate = ''; taskId = '';
     isAmbiguous = false; originalDateText = ''; duplicateWarning = null;
     isModalOpen = true;
-    render();
+    renderPage();
   }
 
   function openEditModal(d) {
@@ -80,7 +80,7 @@ export function render() {
     originalDateText = d.original_date_text || '';
     duplicateWarning = null;
     isModalOpen = true;
-    render();
+    renderPage();
   }
 
   async function handleTitleOrDateChange(newTitle, newDueDate) {
@@ -89,7 +89,7 @@ export function render() {
         const check = await api.checkDeadlineDuplicate({ title: newTitle.trim(), due_date: new Date(newDueDate).toISOString() });
         duplicateWarning = check.is_duplicate ? (check.message || 'Possible duplicate deadline found.') : null;
       } catch { /* ignore */ }
-      render();
+      renderPage();
     }
   }
 
@@ -97,7 +97,7 @@ export function render() {
     e.preventDefault();
     if (!title.trim() || !dueDate) return;
     isSubmitting = true;
-    render();
+    renderPage();
     const payload = {
       title: title.trim(),
       description: description.trim() || undefined,
@@ -116,7 +116,7 @@ export function render() {
       alert(err.message || 'Failed to save deadline.');
     } finally {
       isSubmitting = false;
-      render();
+      renderPage();
     }
   }
 
@@ -126,7 +126,7 @@ export function render() {
       await api.deleteDeadline(deletingId);
       deadlines = deadlines.filter((d) => d.id !== deletingId);
       deletingId = null;
-      render();
+      renderPage();
     } catch (err) {
       alert(err.message || 'Failed to delete deadline.');
     }
@@ -165,7 +165,7 @@ export function render() {
   async function handleGeneratePlan() {
     aiGenerating = true;
     aiProposal = null;
-    render();
+    renderPage();
     try {
       const dateLabel = selectedDate.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
       const response = await api.chatAssistant(`Generate a study plan for ${dateLabel}. Suggest 3-5 concrete study tasks with titles, short descriptions, and suggested due times. Keep each task specific and achievable.`);
@@ -174,14 +174,14 @@ export function render() {
       aiProposal = `I couldn't generate a study plan right now. ${err instanceof Error ? err.message : 'Please try again later.'}`;
     } finally {
       aiGenerating = false;
-      render();
+      renderPage();
     }
   }
 
   async function handleConfirmPlan() {
     if (!aiProposal) return;
     aiGenerating = true;
-    render();
+    renderPage();
     try {
       const lines = aiProposal.split(/\n+/).filter((line) => line.trim().length > 0);
       for (const line of lines) {
@@ -195,9 +195,12 @@ export function render() {
       alert(err.message || 'Failed to create study plan tasks.');
     } finally {
       aiGenerating = false;
-      render();
+      renderPage();
     }
   }
+
+  function renderPage() {
+    container.replaceChildren();
 
   // Header
   const heading = document.createElement('div');
@@ -250,7 +253,7 @@ export function render() {
     btn.className = `planner-view-btn ${viewMode === vm ? 'is-active' : ''}`;
     btn.setAttribute('aria-label', `${vm} view`);
     btn.textContent = vm.charAt(0).toUpperCase() + vm.slice(1);
-    btn.onclick = () => { viewMode = vm; render(); };
+    btn.onclick = () => { viewMode = vm; renderPage(); };
     toggle.appendChild(btn);
   });
   const todayBtn = document.createElement('button');
@@ -261,7 +264,7 @@ export function render() {
     calendarMonth = new Date();
     selectedDate = new Date();
     viewMode = 'day';
-    render();
+    renderPage();
   };
   toggle.appendChild(todayBtn);
 
@@ -297,7 +300,7 @@ export function render() {
     const next = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1);
     calendarMonth = next;
     if (selectedDate.getMonth() !== next.getMonth() || selectedDate.getFullYear() !== next.getFullYear()) selectedDate = next;
-    render();
+    renderPage();
   };
   const nextBtn = document.createElement('button');
   nextBtn.type = 'button';
@@ -307,7 +310,7 @@ export function render() {
     const next = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1);
     calendarMonth = next;
     if (selectedDate.getMonth() !== next.getMonth() || selectedDate.getFullYear() !== next.getFullYear()) selectedDate = next;
-    render();
+    renderPage();
   };
   calControls.appendChild(prevBtn);
   calControls.appendChild(nextBtn);
@@ -380,7 +383,7 @@ export function render() {
       btn.onclick = () => {
         selectedDate = day;
         if (day.getMonth() !== calendarMonth.getMonth()) calendarMonth = new Date(day.getFullYear(), day.getMonth(), 1);
-        render();
+        renderPage();
       };
       calGrid.appendChild(btn);
     });
@@ -445,10 +448,10 @@ export function render() {
         try {
           const updated = await api.toggleTask(task.id);
           tasks = tasks.map((t) => (t.id === updated.id ? updated : t));
-          render();
+          renderPage();
         } catch (e) {
           error = e instanceof Error ? e.message : 'Could not update task.';
-          render();
+          renderPage();
         }
       };
       const span = document.createElement('span');
@@ -514,7 +517,7 @@ export function render() {
       delBtn.className = 'btn btn-danger btn-icon btn-sm';
       delBtn.setAttribute('title', 'Delete deadline');
       delBtn.appendChild(icon('trash2'));
-      delBtn.onclick = () => { deletingId = deadline.id; render(); };
+      delBtn.onclick = () => { deletingId = deadline.id; renderPage(); };
       actions.appendChild(editBtn);
       actions.appendChild(delBtn);
       li.appendChild(actions);
@@ -654,7 +657,7 @@ export function render() {
     rejectBtn.type = 'button';
     rejectBtn.className = 'btn btn-outline btn-sm';
     rejectBtn.textContent = 'Reject';
-    rejectBtn.onclick = () => { aiProposal = null; render(); };
+    rejectBtn.onclick = () => { aiProposal = null; renderPage(); };
     const confirmBtn = document.createElement('button');
     confirmBtn.type = 'button';
     confirmBtn.className = 'btn btn-primary btn-sm';
@@ -750,7 +753,7 @@ export function render() {
       delBtn.className = 'btn btn-danger btn-icon btn-sm';
       delBtn.setAttribute('title', 'Delete deadline');
       delBtn.appendChild(icon('trash2'));
-      delBtn.onclick = () => { deletingId = deadline.id; render(); };
+      delBtn.onclick = () => { deletingId = deadline.id; renderPage(); };
       actions.appendChild(editBtn);
       actions.appendChild(delBtn);
       row.appendChild(actions);
@@ -763,7 +766,7 @@ export function render() {
   if (isModalOpen) {
     const modal = Modal({
       isOpen: true,
-      onClose: () => { isModalOpen = false; render(); },
+      onClose: () => { isModalOpen = false; renderPage(); },
       title: editingDeadline ? 'Edit Academic Deadline' : 'Schedule Academic Deadline',
       description: 'Preserve exact due dates and event metadata.',
       maxWidth: 'max-w-2xl',
@@ -913,7 +916,7 @@ export function render() {
 
     const actionsDiv = document.createElement('div');
     actionsDiv.className = 'planner-form-actions';
-    const cancelBtn = Button({ children: 'Cancel', variant: 'outline', onClick: () => { isModalOpen = false; render(); } });
+    const cancelBtn = Button({ children: 'Cancel', variant: 'outline', onClick: () => { isModalOpen = false; renderPage(); } });
     const saveBtn = Button({ children: editingDeadline ? 'Save Changes' : 'Schedule Deadline', variant: 'primary', isLoading: isSubmitting, type: 'submit' });
     actionsDiv.appendChild(cancelBtn);
     actionsDiv.appendChild(saveBtn);
@@ -935,13 +938,13 @@ export function render() {
   if (deletingId) {
     const modal = Modal({
       isOpen: true,
-      onClose: () => { deletingId = null; render(); },
+      onClose: () => { deletingId = null; renderPage(); },
       title: 'Delete Deadline',
       description: 'Are you sure you want to delete this deadline? Associated reminders will also be cancelled.',
     });
     const actionsDiv = document.createElement('div');
     actionsDiv.className = 'planner-delete-actions';
-    const cancelBtn = Button({ children: 'Cancel', variant: 'outline', onClick: () => { deletingId = null; render(); } });
+    const cancelBtn = Button({ children: 'Cancel', variant: 'outline', onClick: () => { deletingId = null; renderPage(); } });
     const delBtn = Button({ children: 'Confirm Deletion', variant: 'danger', onClick: confirmDelete });
     actionsDiv.appendChild(cancelBtn);
     actionsDiv.appendChild(delBtn);
@@ -950,6 +953,9 @@ export function render() {
     container.appendChild(modal);
   }
 
+  }
+
+  renderPage();
   fetchPlanner();
   return container;
 }

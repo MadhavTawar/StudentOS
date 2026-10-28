@@ -85,6 +85,12 @@ class UserPreference(Base):
     email_sync_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     ai_features_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     reminder_lead_minutes: Mapped[int] = mapped_column(Integer, default=1440, nullable=False)
+    email_notifications_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    task_reminders_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    deadline_reminders_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    exam_reminders_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    overdue_reminders_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    daily_summary_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

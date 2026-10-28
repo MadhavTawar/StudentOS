@@ -8,8 +8,9 @@ respect workspace isolation.
 
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
+from backend.app.models.goal import Goal, GoalMilestone
 from backend.app.models.workspace import WorkspaceMembership
 from backend.app.services.due_items import get_due_items
 from backend.app.services.knowledge_vector_store import KnowledgeVectorStore
@@ -73,12 +74,50 @@ def list_upcoming_deadlines(db: Session, user_id: str, workspace_id: str, limit:
 def goal_progress(db: Session, user_id: str, workspace_id: str) -> List[Dict[str, Any]]:
     """Return goal progress for a user.
 
-    Placeholder: goals progress is computed client-side from tasks/deadlines
-    until a dedicated goals service is implemented. Workspace access is
-    validated for consistency.
+    Goals are user-owned, so workspace access is validated for consistency
+    while the goals themselves are filtered by the acting user.
     """
     _validate_workspace(db, user_id, workspace_id)
-    return []
+    goals = (
+        db.query(Goal)
+        .options(joinedload(Goal.milestones).joinedload(GoalMilestone.task))
+        .filter(Goal.user_id == user_id)
+        .order_by(Goal.target_date.asc(), Goal.created_at.asc())
+        .all()
+    )
+
+    progress: List[Dict[str, Any]] = []
+    for goal in goals:
+        milestones = []
+        completed_count = 0
+        for milestone in goal.milestones:
+            completed = milestone.status == "Completed" or (
+                milestone.task is not None and milestone.task.status == "Completed"
+            )
+            completed_count += int(completed)
+            milestones.append({
+                "id": milestone.id,
+                "title": milestone.title,
+                "target_date": milestone.target_date.isoformat() if milestone.target_date else None,
+                "status": "Completed" if completed else milestone.status,
+                "task_id": milestone.task_id,
+            })
+
+        total_count = len(milestones)
+        progress.append({
+            "id": goal.id,
+            "title": goal.title,
+            "description": goal.description,
+            "category": goal.category,
+            "target_date": goal.target_date.isoformat() if goal.target_date else None,
+            "status": goal.status,
+            "weekly_minutes": goal.weekly_minutes,
+            "progress_percent": round(completed_count * 100 / total_count) if total_count else 0,
+            "completed_milestones": completed_count,
+            "total_milestones": total_count,
+            "milestones": milestones,
+        })
+    return progress
 
 
 def search_authorized_documents(db: Session, user_id: str, workspace_id: str, query: str, limit: int = 5) -> List[Dict[str, Any]]:

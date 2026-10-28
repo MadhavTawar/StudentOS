@@ -25,7 +25,7 @@ export function render() {
 
   function fetchInbox() {
     isLoading = true;
-    render();
+    renderPage();
     api.getGmailStatus()
       .then((statusData) => {
         status = statusData;
@@ -37,7 +37,7 @@ export function render() {
         }
       })
       .catch((err) => { console.error(err); })
-      .finally(() => { isLoading = false; render(); });
+      .finally(() => { isLoading = false; renderPage(); });
   }
 
   async function handleConnectGmail() {
@@ -72,7 +72,7 @@ export function render() {
     isExtracting = true;
     isModalOpen = true;
     reviewMessage = null;
-    render();
+    renderPage();
     try {
       const candidates = await api.extractEmailCandidates({
         message_id: email.message_id,
@@ -90,7 +90,7 @@ export function render() {
       reviewMessage = err instanceof Error ? err.message : 'AI extraction failed.';
     } finally {
       isExtracting = false;
-      render();
+      renderPage();
     }
   }
 
@@ -107,8 +107,11 @@ export function render() {
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Action failed.');
     }
-    render();
+    renderPage();
   }
+
+  function renderPage() {
+    container.replaceChildren();
 
   // Header
   const heading = document.createElement('div');
@@ -249,7 +252,7 @@ export function render() {
   if (isModalOpen) {
     const modal = Modal({
       isOpen: true,
-      onClose: () => { isModalOpen = false; render(); },
+      onClose: () => { isModalOpen = false; renderPage(); },
       title: 'AI Candidate Review & Verification',
       description: 'Verify extracted tasks and deadlines before adding to your schedule.',
       maxWidth: 'max-w-2xl',
@@ -417,7 +420,7 @@ export function render() {
 
     const closeAction = document.createElement('div');
     closeAction.className = 'proposal-close-action';
-    const closeBtn = Button({ children: 'Close', variant: 'outline', onClick: () => { isModalOpen = false; render(); } });
+    const closeBtn = Button({ children: 'Close', variant: 'outline', onClick: () => { isModalOpen = false; renderPage(); } });
     closeAction.appendChild(closeBtn);
     review.appendChild(closeAction);
 
@@ -426,6 +429,9 @@ export function render() {
     container.appendChild(modal);
   }
 
+  }
+
+  renderPage();
   fetchInbox();
   return container;
 }

@@ -45,6 +45,13 @@ class Settings(BaseSettings):
     HUGGINGFACE_API_KEY: str = ""
     GMAIL_FETCH_BODY_ON_EXTRACT: bool = False
 
+    # Outbound email notifications. Keep the mock provider as the safe default
+    # for development and tests; production must opt into Resend explicitly.
+    EMAIL_PROVIDER: str = "mock"  # "mock" or "resend"
+    RESEND_API_KEY: str = ""
+    RESEND_FROM_EMAIL: str = ""
+    EMAIL_REQUEST_TIMEOUT_SECONDS: float = 10.0
+
     # Workspace knowledge documents (local storage and local Chroma embeddings)
     KNOWLEDGE_STORAGE_DIR: str = "~/.studentos/knowledge"
     KNOWLEDGE_VECTOR_DIR: str = "~/.studentos/chroma"

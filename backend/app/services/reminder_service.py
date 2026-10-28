@@ -2,11 +2,17 @@ import asyncio
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Tuple
+from zoneinfo import ZoneInfo
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from backend.app.core.logging import logger
 from backend.app.db.session import SessionLocal
-from backend.app.models.reminder import Reminder, InAppNotification, AutoReminderLog
+from backend.app.models.reminder import Reminder, InAppNotification, AutoReminderLog, EmailDelivery
+from backend.app.models.user import User, UserPreference
+from backend.app.services.email_notification_service import (
+    EmailProviderError,
+    get_email_notification_provider,
+)
 from backend.app.services.due_items import get_due_items
 from backend.app.schemas.reminder import ReminderCreate
 from backend.app.core.security import ensure_utc
@@ -32,29 +38,6 @@ class InAppNotificationChannel(NotificationChannel):
             notification_type=notification_type,
         )
         self.db.add(notif)
-
-
-class EmailNotificationChannel(NotificationChannel):
-    """SMTP email channel, disabled when SMTP_HOST is unset."""
-
-    def __init__(self, smtp_host: Optional[str] = None, smtp_port: int = 587,
-                 smtp_user: Optional[str] = None, smtp_password: Optional[str] = None,
-                 from_address: Optional[str] = None):
-        self.smtp_host = smtp_host
-        self.smtp_port = smtp_port
-        self.smtp_user = smtp_user
-        self.smtp_password = smtp_password
-        self.from_address = from_address
-
-    @property
-    def enabled(self) -> bool:
-        return bool(self.smtp_host)
-
-    def send(self, user_id: str, title: str, message: str, notification_type: str) -> None:
-        if not self.enabled:
-            return
-        # SMTP delivery left as extension point; in-app remains default.
-        logger.info("Email channel enabled but SMTP delivery not implemented; skipping %s", title)
 
 
 class ReminderService:
@@ -168,7 +151,6 @@ class ReminderService:
 
         # 2. Auto reminders via shared layer
         # Group users
-        from backend.app.models.user import User
         users = db.query(User).all()
         channel = InAppNotificationChannel(db)
 
@@ -185,6 +167,11 @@ class ReminderService:
                     continue
 
                 # Determine which stages have already passed / are due
+                preference = (
+                    db.query(UserPreference)
+                    .filter(UserPreference.user_id == user.id)
+                    .first()
+                )
                 for stage_key, lead_minutes in ReminderService.STAGES:
                     stage_time = due - timedelta(minutes=lead_minutes)
                     # Stage fires when now >= stage_time and now < due (not yet overdue)
@@ -201,6 +188,20 @@ class ReminderService:
                         title = f"Upcoming: {item.title}"
                         msg = f"'{item.title}' is due in ~{lead_minutes // 60}h ({due.strftime('%b %d, %H:%M')})."
                         channel.send(user.id, title, msg, "deadline_approaching")
+                        if preference and preference.email_notifications_enabled:
+                            ReminderService._queue_email_delivery(
+                                db, user, item.id, item.kind, stage_key, now,
+                                title, msg,
+                                enabled=(
+                                    preference.exam_reminders_enabled
+                                    if item.event_type == "Examination"
+                                    else (
+                                        preference.deadline_reminders_enabled
+                                        if item.kind == "deadline"
+                                        else preference.task_reminders_enabled
+                                    )
+                                ),
+                            )
                         db.add(AutoReminderLog(
                             user_id=user.id,
                             item_id=item.id,
@@ -219,12 +220,126 @@ class ReminderService:
                         title = f"Overdue: {item.title}"
                         msg = f"'{item.title}' is now overdue (was due {due.strftime('%b %d, %H:%M')})."
                         channel.send(user.id, title, msg, "task_overdue")
+                        if preference and preference.overdue_reminders_enabled:
+                            if preference.email_notifications_enabled:
+                                ReminderService._queue_email_delivery(
+                                    db, user, item.id, item.kind, "overdue", now,
+                                    title, msg, enabled=True,
+                                )
                         db.add(AutoReminderLog(
                             user_id=user.id,
                             item_id=item.id,
                             item_kind=item.kind,
                             stage="overdue",
                         ))
+
+        db.commit()
+
+    @staticmethod
+    def _queue_email_delivery(
+        db: Session,
+        user: User,
+        item_id: str,
+        item_kind: str,
+        stage: str,
+        now: datetime,
+        title: str,
+        message: str,
+        *,
+        enabled: bool,
+    ) -> None:
+        if not enabled:
+            return
+        existing = db.query(EmailDelivery).filter(
+            EmailDelivery.user_id == user.id,
+            EmailDelivery.item_id == item_id,
+            EmailDelivery.item_kind == item_kind,
+            EmailDelivery.stage == stage,
+        ).first()
+        if existing is None:
+            db.add(EmailDelivery(
+                user_id=user.id,
+                item_id=item_id,
+                item_kind=item_kind,
+                stage=stage,
+                subject=title,
+                message=message,
+                next_attempt_at=now,
+            ))
+
+    @staticmethod
+    async def deliver_pending_email_notifications(
+        db: Session,
+        now: Optional[datetime] = None,
+    ) -> None:
+        """Deliver queued emails with bounded retries and user isolation."""
+        now = ensure_utc(now or datetime.now(timezone.utc))
+        deliveries = db.query(EmailDelivery).filter(
+            EmailDelivery.status == "Pending",
+            EmailDelivery.next_attempt_at <= now,
+            EmailDelivery.attempts < 3,
+        ).limit(50).all()
+        provider = get_email_notification_provider()
+        for delivery in deliveries:
+            user = db.query(User).filter(User.id == delivery.user_id).first()
+            preference = db.query(UserPreference).filter(
+                UserPreference.user_id == delivery.user_id
+            ).first()
+            if not user or not preference or not preference.email_notifications_enabled:
+                delivery.status = "Suppressed"
+                continue
+            delivery.attempts += 1
+            try:
+                result = await provider.send(
+                    recipient=user.email,
+                    subject=f"StudentOS: {delivery.subject}",
+                    text=delivery.message,
+                )
+                delivery.status = "Sent"
+                delivery.provider = result.provider
+                delivery.provider_message_id = result.provider_message_id
+                delivery.sent_at = now
+            except EmailProviderError as exc:
+                delivery.last_error = str(exc)
+                if delivery.attempts >= 3:
+                    delivery.status = "Failed"
+                else:
+                    delivery.next_attempt_at = now + timedelta(minutes=2 ** delivery.attempts)
+                logger.warning(
+                    "Email notification delivery failed for delivery %s: %s",
+                    delivery.id,
+                    type(exc).__name__,
+                )
+
+            if (
+                preference
+                and preference.email_notifications_enabled
+                and preference.daily_summary_enabled
+            ):
+                try:
+                    local_date = now.astimezone(ZoneInfo(preference.timezone or "UTC")).date()
+                except Exception:
+                    local_date = now.date()
+                daily_items = [
+                    item for item in items
+                    if item.due_date and ensure_utc(item.due_date).date() == local_date
+                ]
+                if daily_items:
+                    summary = "\n".join(
+                        f"- {item.title} ({item.kind})"
+                        for item in daily_items
+                    )
+                    ReminderService._queue_email_delivery(
+                        db,
+                        user,
+                        f"daily:{local_date.isoformat()}",
+                        "daily",
+                        local_date.isoformat(),
+                        now,
+                        "Your StudentOS daily agenda",
+                        f"Today's academic items:\n{summary}",
+                        enabled=True,
+                    )
 
         db.commit()
 
@@ -241,6 +356,7 @@ async def start_reminder_scheduler_task():
             db = SessionLocal()
             try:
                 ReminderService.check_and_generate_reminders(db)
+                await ReminderService.deliver_pending_email_notifications(db)
             finally:
                 db.close()
         except Exception as e:

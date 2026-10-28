@@ -16,6 +16,12 @@ export function render() {
   let emailSync = true;
   let aiFeatures = true;
   let leadTime = 1440;
+  let emailNotifications = false;
+  let taskReminders = true;
+  let deadlineReminders = true;
+  let examReminders = true;
+  let overdueReminders = false;
+  let dailySummary = false;
 
   async function loadPrefs() {
     try {
@@ -25,6 +31,12 @@ export function render() {
       emailSync = data.email_sync_enabled;
       aiFeatures = data.ai_features_enabled;
       leadTime = data.reminder_lead_minutes || 1440;
+      emailNotifications = data.email_notifications_enabled || false;
+      taskReminders = data.task_reminders_enabled !== false;
+      deadlineReminders = data.deadline_reminders_enabled !== false;
+      examReminders = data.exam_reminders_enabled !== false;
+      overdueReminders = data.overdue_reminders_enabled || false;
+      dailySummary = data.daily_summary_enabled || false;
     } catch (err) {
       console.error(err);
     } finally {
@@ -45,6 +57,12 @@ export function render() {
         email_sync_enabled: emailSync,
         ai_features_enabled: aiFeatures,
         reminder_lead_minutes: leadTime,
+        email_notifications_enabled: emailNotifications,
+        task_reminders_enabled: taskReminders,
+        deadline_reminders_enabled: deadlineReminders,
+        exam_reminders_enabled: examReminders,
+        overdue_reminders_enabled: overdueReminders,
+        daily_summary_enabled: dailySummary,
       });
       document.documentElement.dataset.theme = theme === 'dark' ? 'dark' : 'light';
       saveSuccess = true;
@@ -208,6 +226,33 @@ export function render() {
 
   toggles.appendChild(row1);
   toggles.appendChild(row2);
+
+  const notificationRows = [
+    ['emailNotificationsToggle', 'emailNotifications', emailNotifications, (value) => { emailNotifications = value; }, 'Enable email notifications: Sends selected academic reminders to your account email through the configured notification provider.'],
+    ['taskRemindersToggle', 'taskReminders', taskReminders, (value) => { taskReminders = value; }, 'Task reminders: Send email reminders for active tasks.'],
+    ['deadlineRemindersToggle', 'deadlineReminders', deadlineReminders, (value) => { deadlineReminders = value; }, 'Assignment reminders: Send email reminders for upcoming deadlines.'],
+    ['examRemindersToggle', 'examReminders', examReminders, (value) => { examReminders = value; }, 'Exam reminders: Send email reminders for examinations.'],
+    ['overdueRemindersToggle', 'overdueReminders', overdueReminders, (value) => { overdueReminders = value; }, 'Overdue reminders: Send one email when an item becomes overdue.'],
+    ['dailySummaryToggle', 'dailySummary', dailySummary, (value) => { dailySummary = value; }, 'Daily agenda: Enable the optional daily summary email.'],
+  ];
+  notificationRows.forEach(([id, name, checked, onChange, text]) => {
+    const row = document.createElement('div');
+    row.className = 'settings-toggle-row';
+    const checkbox = document.createElement('input');
+    checkbox.id = id;
+    checkbox.name = name;
+    checkbox.type = 'checkbox';
+    checkbox.checked = checked;
+    checkbox.className = 'settings-checkbox';
+    checkbox.onchange = (e) => onChange(e.target.checked);
+    const label = document.createElement('label');
+    label.htmlFor = id;
+    label.className = 'settings-toggle-label';
+    label.textContent = text;
+    row.appendChild(checkbox);
+    row.appendChild(label);
+    toggles.appendChild(row);
+  });
   form.appendChild(toggles);
 
   const saveActions = document.createElement('div');

@@ -36,6 +36,19 @@ export function render() {
   let isAsking = false;
   let error = '';
   let chatError = '';
+  let libraryLoadStarted = false;
+  let previewRequestId = 0;
+  let chatRequestId = 0;
+
+  const replacePreview = (nextPreview) => {
+    if (preview?.url && preview.url !== nextPreview?.url) {
+      URL.revokeObjectURL(preview.url);
+    }
+    preview = nextPreview;
+  };
+
+  function renderPage() {
+  container.replaceChildren();
 
   const header = document.createElement('header');
   header.className = 'learn-header';
@@ -71,7 +84,7 @@ export function render() {
     btn.setAttribute('aria-controls', `learn-panel-${panel}`);
     btn.setAttribute('aria-selected', activePanel === panel);
     btn.textContent = panel.charAt(0).toUpperCase() + panel.slice(1);
-    btn.onclick = () => { activePanel = panel; render(); };
+    btn.onclick = () => { activePanel = panel; renderPage(); };
     tabs.appendChild(btn);
   });
   container.appendChild(tabs);
@@ -158,10 +171,10 @@ export function render() {
         btn.onclick = () => {
           selectedDocumentId = document.id;
           selectedVersionId = document.version_id;
-          preview = null;
+          replacePreview(null);
           activePanel = 'reader';
           previewPage = 1;
-          render();
+          renderPage();
         };
         const catSpan = document.createElement('span');
         catSpan.className = 'learn-document-category';
@@ -243,7 +256,7 @@ export function render() {
         link.download = selectedDocument.title;
         link.click();
         URL.revokeObjectURL(url);
-      }).catch((err) => { chatError = err instanceof Error ? err.message : 'Please check that the StudentOS service is available.'; render(); });
+      }).catch((err) => { chatError = err instanceof Error ? err.message : 'Please check that the StudentOS service is available.'; renderPage(); });
     };
     heading.appendChild(info);
     heading.appendChild(downloadBtn);
@@ -305,20 +318,31 @@ export function render() {
 
     // Load preview if not loaded
     if (previewDocumentId && previewVersion && (!preview || preview.documentId !== previewDocumentId || preview.versionId !== previewVersion)) {
+      const requestId = ++previewRequestId;
       api.downloadKnowledgeVersion(previewDocumentId, previewVersion)
         .then((blob) => {
-          preview = {
+          if (requestId !== previewRequestId ||
+              selectedDocumentId !== previewDocumentId ||
+              selectedVersionId !== previewVersion) {
+            return;
+          }
+          replacePreview({
             documentId: previewDocumentId,
             versionId: previewVersion,
             url: URL.createObjectURL(blob),
             contentType: blob.type,
             page: previewPage,
-          };
-          render();
+          });
+          renderPage();
         })
         .catch((err) => {
-          preview = { documentId: previewDocumentId, versionId: previewVersion, error: err instanceof Error ? err.message : 'Please check that the StudentOS service is available.' };
-          render();
+          if (requestId !== previewRequestId ||
+              selectedDocumentId !== previewDocumentId ||
+              selectedVersionId !== previewVersion) {
+            return;
+          }
+          replacePreview({ documentId: previewDocumentId, versionId: previewVersion, error: err instanceof Error ? err.message : 'Please check that the StudentOS service is available.' });
+          renderPage();
         });
     }
 
@@ -416,10 +440,10 @@ export function render() {
           openBtn.onclick = () => {
             selectedDocumentId = citation.document_id;
             selectedVersionId = citation.version_id;
-            preview = null;
+            replacePreview(null);
             activePanel = 'reader';
             previewPage = citation.page_start ?? 1;
-            render();
+            renderPage();
           };
           details.appendChild(openBtn);
           const downloadBtn = document.createElement('button');
@@ -434,7 +458,7 @@ export function render() {
               link.download = citation.document_title;
               link.click();
               URL.revokeObjectURL(url);
-            }).catch((err) => { chatError = err instanceof Error ? err.message : 'Please check that the StudentOS service is available.'; render(); });
+            }).catch((err) => { chatError = err instanceof Error ? err.message : 'Please check that the StudentOS service is available.'; renderPage(); });
           };
           details.appendChild(downloadBtn);
           citations.appendChild(details);
@@ -469,7 +493,8 @@ export function render() {
     isAsking = true;
     chatError = '';
     question = '';
-    render();
+    renderPage();
+    const requestId = ++chatRequestId;
     const taskPhrase = isStudentOsTaskQuestion(prompt);
     const hasPublishedDocs = library.length > 0;
     try {
@@ -480,7 +505,7 @@ export function render() {
         } else {
           chatError = 'Documents are unavailable right now — try again later.';
         }
-        render();
+        renderPage();
         return;
       }
       const result = await api.chatWithKnowledge(prompt);
@@ -503,8 +528,10 @@ export function render() {
         chatError = 'Documents are unavailable right now — try again later.';
       }
     } finally {
-      isAsking = false;
-      render();
+      if (requestId === chatRequestId) {
+        isAsking = false;
+        renderPage();
+      }
     }
   };
 
@@ -540,22 +567,28 @@ export function render() {
   layout.appendChild(chatPanel);
   container.appendChild(layout);
 
-  // Load data
-  Promise.all([api.listKnowledgeLibrary(), api.getKnowledgeAccess(), api.getAiProvider()])
-    .then(([items, currentAccess, provider]) => {
-      library = items;
-      selectedDocumentId = items[0]?.id ?? '';
-      selectedVersionId = items[0]?.version_id ?? '';
-      access = currentAccess;
-      aiProvider = provider.provider;
-      isLoadingLibrary = false;
-      render();
-    })
-    .catch((loadError) => {
-      error = loadError instanceof Error ? loadError.message : 'Please check that the StudentOS service is available.';
-      isLoadingLibrary = false;
-      render();
-    });
+  if (!libraryLoadStarted) {
+    libraryLoadStarted = true;
+    Promise.all([api.listKnowledgeLibrary(), api.getKnowledgeAccess(), api.getAiProvider()])
+      .then(([items, currentAccess, provider]) => {
+        library = items;
+        selectedDocumentId = items[0]?.id ?? '';
+        selectedVersionId = items[0]?.version_id ?? '';
+        access = currentAccess;
+        aiProvider = provider.provider;
+        isLoadingLibrary = false;
+        renderPage();
+      })
+      .catch((loadError) => {
+        error = loadError instanceof Error ? loadError.message : 'Please check that the StudentOS service is available.';
+        isLoadingLibrary = false;
+        renderPage();
+      });
+  }
 
+  return container;
+  }
+
+  renderPage();
   return container;
 }

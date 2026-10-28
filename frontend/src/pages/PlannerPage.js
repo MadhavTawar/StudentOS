@@ -58,7 +58,6 @@ export function render() {
     const q = params.get('q');
     if (q) params2.set('q', q);
     router.replace(`${window.location.pathname}?${params2.toString()}`);
-    render();
   }
 
   const page = view === 'tasks' ? TasksPage : DeadlinesPage;

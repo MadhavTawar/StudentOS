@@ -8,6 +8,12 @@ class UserPreferenceUpdate(BaseModel):
     email_sync_enabled: Optional[bool] = None
     ai_features_enabled: Optional[bool] = None
     reminder_lead_minutes: Optional[int] = Field(None, ge=5, le=10080)  # Between 5 mins and 7 days
+    email_notifications_enabled: Optional[bool] = None
+    task_reminders_enabled: Optional[bool] = None
+    deadline_reminders_enabled: Optional[bool] = None
+    exam_reminders_enabled: Optional[bool] = None
+    overdue_reminders_enabled: Optional[bool] = None
+    daily_summary_enabled: Optional[bool] = None
 
 
 class UserPreferenceResponse(BaseModel):
@@ -20,3 +26,9 @@ class UserPreferenceResponse(BaseModel):
     email_sync_enabled: bool
     ai_features_enabled: bool
     reminder_lead_minutes: int
+    email_notifications_enabled: bool
+    task_reminders_enabled: bool
+    deadline_reminders_enabled: bool
+    exam_reminders_enabled: bool
+    overdue_reminders_enabled: bool
+    daily_summary_enabled: bool

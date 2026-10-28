@@ -8,6 +8,57 @@ from backend.app.models.workspace import Workspace
 from backend.app.services.workspace_service import create_personal_workspace
 
 
+def migrate_email_notification_schema(engine: Engine) -> None:
+    """Add notification preferences and delivery state without dropping data."""
+    inspector = inspect(engine)
+    if inspector.has_table("user_preferences"):
+        columns = {column["name"] for column in inspector.get_columns("user_preferences")}
+        additions = {
+            "email_notifications_enabled": "BOOLEAN NOT NULL DEFAULT 0",
+            "task_reminders_enabled": "BOOLEAN NOT NULL DEFAULT 1",
+            "deadline_reminders_enabled": "BOOLEAN NOT NULL DEFAULT 1",
+            "exam_reminders_enabled": "BOOLEAN NOT NULL DEFAULT 1",
+            "overdue_reminders_enabled": "BOOLEAN NOT NULL DEFAULT 0",
+            "daily_summary_enabled": "BOOLEAN NOT NULL DEFAULT 0",
+        }
+        with engine.begin() as connection:
+            for name, definition in additions.items():
+                if name not in columns:
+                    connection.execute(text(f"ALTER TABLE user_preferences ADD COLUMN {name} {definition}"))
+    with engine.begin() as connection:
+        connection.execute(text(
+            "CREATE TABLE IF NOT EXISTS email_deliveries ("
+            "id VARCHAR(36) PRIMARY KEY, user_id VARCHAR(36) NOT NULL, "
+            "item_id VARCHAR(36) NOT NULL, item_kind VARCHAR(16) NOT NULL, "
+            "stage VARCHAR(16) NOT NULL, status VARCHAR(32) NOT NULL DEFAULT 'Pending', "
+            "subject VARCHAR(255) NOT NULL, message TEXT NOT NULL, "
+            "attempts INTEGER NOT NULL DEFAULT 0, next_attempt_at TIMESTAMP NOT NULL, "
+            "provider VARCHAR(32), provider_message_id VARCHAR(255), last_error TEXT, "
+            "created_at TIMESTAMP NOT NULL, sent_at TIMESTAMP, "
+            "FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE)"
+        ))
+        connection.execute(text("DROP INDEX IF EXISTS idx_email_delivery_unique"))
+        connection.execute(text(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_email_delivery_unique "
+            "ON email_deliveries (user_id, item_id, item_kind, stage)"
+        ))
+        connection.execute(text(
+            "CREATE INDEX IF NOT EXISTS idx_email_delivery_next_attempt "
+            "ON email_deliveries (next_attempt_at)"
+        ))
+        delivery_columns = {
+            column["name"] for column in inspect(engine).get_columns("email_deliveries")
+        }
+        if "subject" not in delivery_columns:
+            connection.execute(text(
+                "ALTER TABLE email_deliveries ADD COLUMN subject VARCHAR(255) NOT NULL DEFAULT ''"
+            ))
+        if "message" not in delivery_columns:
+            connection.execute(text(
+                "ALTER TABLE email_deliveries ADD COLUMN message TEXT NOT NULL DEFAULT ''"
+            ))
+
+
 def migrate_legacy_knowledge_workspaces(engine: Engine) -> None:
     inspector = inspect(engine)
     if not inspector.has_table("knowledge_documents"):

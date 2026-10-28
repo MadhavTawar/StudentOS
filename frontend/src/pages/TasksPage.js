@@ -40,7 +40,7 @@ export function render() {
   function fetchTasks() {
     isLoading = true;
     error = null;
-    render();
+    renderPage();
     const query = new URLSearchParams();
     if (statusFilter) query.append('status', statusFilter);
     if (priorityFilter) query.append('priority', priorityFilter);
@@ -75,11 +75,11 @@ export function render() {
       }
       tasks = filtered;
       isLoading = false;
-      render();
+      renderPage();
     }).catch((err) => {
       error = err.message || 'Failed to fetch tasks.';
       isLoading = false;
-      render();
+      renderPage();
     });
   }
 
@@ -87,7 +87,7 @@ export function render() {
     editingTask = null;
     title = ''; description = ''; category = 'Assignment'; priority = 'Medium'; status = 'Pending'; dueDate = ''; duration = '';
     isModalOpen = true;
-    render();
+    renderPage();
   }
 
   function openEditModal(task) {
@@ -100,14 +100,14 @@ export function render() {
     dueDate = task.due_date ? new Date(task.due_date).toISOString().slice(0, 16) : '';
     duration = task.estimated_duration ? String(task.estimated_duration) : '';
     isModalOpen = true;
-    render();
+    renderPage();
   }
 
   async function handleSaveTask(e) {
     e.preventDefault();
     if (!title.trim()) return;
     isSubmitting = true;
-    render();
+    renderPage();
     const payload = {
       title: title.trim(),
       description: description.trim() || undefined,
@@ -126,7 +126,7 @@ export function render() {
       alert(err.message || 'Failed to save task.');
     } finally {
       isSubmitting = false;
-      render();
+      renderPage();
     }
   }
 
@@ -134,7 +134,7 @@ export function render() {
     try {
       const updated = await api.toggleTask(task.id);
       tasks = tasks.map((t) => (t.id === task.id ? updated : t));
-      render();
+      renderPage();
     } catch (err) {
       console.error(err);
     }
@@ -146,11 +146,14 @@ export function render() {
       await api.deleteTask(deletingTaskId);
       tasks = tasks.filter((t) => t.id !== deletingTaskId);
       deletingTaskId = null;
-      render();
+      renderPage();
     } catch (err) {
       console.error(err);
     }
   }
+
+  function renderPage() {
+    container.replaceChildren();
 
   // Header
   const heading = document.createElement('div');
@@ -338,7 +341,7 @@ export function render() {
     delBtn.setAttribute('title', 'Delete task');
     delBtn.setAttribute('aria-label', `Delete ${task.title}`);
     delBtn.appendChild(icon('trash2'));
-    delBtn.onclick = () => { deletingTaskId = task.id; render(); };
+    delBtn.onclick = () => { deletingTaskId = task.id; renderPage(); };
     actions.appendChild(editBtn);
     actions.appendChild(delBtn);
 
@@ -352,7 +355,7 @@ export function render() {
   if (isModalOpen) {
     const modal = Modal({
       isOpen: true,
-      onClose: () => { isModalOpen = false; render(); },
+      onClose: () => { isModalOpen = false; renderPage(); },
       title: editingTask ? 'Edit Task' : 'Create New Academic Task',
       description: 'Provide comprehensive details for your study schedule.',
     });
@@ -468,7 +471,7 @@ export function render() {
 
     const actionsDiv = document.createElement('div');
     actionsDiv.className = 'task-form-actions';
-    const cancelBtn = Button({ children: 'Cancel', variant: 'outline', onClick: () => { isModalOpen = false; render(); } });
+    const cancelBtn = Button({ children: 'Cancel', variant: 'outline', onClick: () => { isModalOpen = false; renderPage(); } });
     const saveBtn = Button({ children: editingTask ? 'Save Changes' : 'Create Task', variant: 'primary', isLoading: isSubmitting, type: 'submit' });
     actionsDiv.appendChild(cancelBtn);
     actionsDiv.appendChild(saveBtn);
@@ -488,13 +491,13 @@ export function render() {
   if (deletingTaskId) {
     const modal = Modal({
       isOpen: true,
-      onClose: () => { deletingTaskId = null; render(); },
+      onClose: () => { deletingTaskId = null; renderPage(); },
       title: 'Confirm Task Deletion',
       description: 'Are you sure you want to delete this task? This action cannot be undone.',
     });
     const actionsDiv = document.createElement('div');
     actionsDiv.className = 'task-form-actions';
-    const cancelBtn = Button({ children: 'Cancel', variant: 'outline', onClick: () => { deletingTaskId = null; render(); } });
+    const cancelBtn = Button({ children: 'Cancel', variant: 'outline', onClick: () => { deletingTaskId = null; renderPage(); } });
     const delBtn = Button({ children: 'Delete Task', variant: 'danger', onClick: confirmDeleteTask });
     actionsDiv.appendChild(cancelBtn);
     actionsDiv.appendChild(delBtn);
@@ -503,6 +506,9 @@ export function render() {
     container.appendChild(modal);
   }
 
+  }
+
+  renderPage();
   fetchTasks();
   return container;
 }

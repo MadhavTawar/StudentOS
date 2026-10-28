@@ -15,9 +15,9 @@ export function render() {
   let error = '';
 
   function load() {
-    api.listGoals().then((items) => { goals = items; render(); }).catch((e) => {
+    api.listGoals().then((items) => { goals = items; renderPage(); }).catch((e) => {
       error = e instanceof Error ? e.message : 'Could not load goals.';
-      render();
+      renderPage();
     });
   }
 
@@ -30,7 +30,7 @@ export function render() {
       load();
     } catch (e) {
       error = e instanceof Error ? e.message : 'Failed to create goal.';
-      render();
+      renderPage();
     }
   }
 
@@ -63,6 +63,9 @@ export function render() {
       alert(e instanceof Error ? e.message : 'Failed to delete goal.');
     }
   }
+
+  function renderPage() {
+    container.replaceChildren();
 
   const header = document.createElement('header');
   header.className = 'card page-intro-card';
@@ -255,6 +258,9 @@ export function render() {
     container.appendChild(article);
   });
 
+  }
+
+  renderPage();
   load();
   return container;
 }

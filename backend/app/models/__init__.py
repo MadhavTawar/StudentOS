@@ -4,7 +4,7 @@ from backend.app.models.task import Task
 from backend.app.models.goal import Goal, GoalMilestone
 from backend.app.models.deadline import Deadline
 from backend.app.models.integration import OAuthIntegration, OAuthState, EmailMetadataCache
-from backend.app.models.reminder import Reminder, InAppNotification
+from backend.app.models.reminder import Reminder, InAppNotification, EmailDelivery
 from backend.app.models.ai_candidate import AIExtractionCandidate
 from backend.app.models.knowledge import (
     KnowledgeAuditEvent,
@@ -29,6 +29,7 @@ __all__ = [
     "EmailMetadataCache",
     "Reminder",
     "InAppNotification",
+    "EmailDelivery",
     "AIExtractionCandidate",
     "UserRole",
     "KnowledgeDocument",
