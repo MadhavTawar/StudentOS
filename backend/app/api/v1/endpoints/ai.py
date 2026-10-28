@@ -2,8 +2,10 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 from backend.app.api.deps import check_rate_limit, get_db, get_current_user
+from backend.app.api.workspace_deps import require_current_workspace
 from backend.app.core.config import settings
 from backend.app.models.user import User
+from backend.app.models.workspace import Workspace
 from backend.app.schemas.ai import (
     EmailExtractionRequest,
     AICandidateResponse,
@@ -72,7 +74,8 @@ def get_ai_provider():
 async def chat_assistant(
     chat_in: AIAssistantMessageRequest,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    workspace: Workspace = Depends(require_current_workspace),
 ):
     """
     Ask StudentOS Assistant questions about schedule, deadlines, and study plans.
@@ -82,5 +85,6 @@ async def chat_assistant(
     return await AIService.chat_with_assistant(
         db,
         user_id=current_user.id,
-        user_message=chat_in.message
+        user_message=chat_in.message,
+        workspace_id=workspace.id,
     )

@@ -4,9 +4,6 @@ import { router } from '../../router.js';
 import { TopBar } from './TopBar.js';
 import { LoadingSkeleton } from '../index.js';
 
-let isCurrent = true;
-let unsub = null;
-
 export function Layout() {
   const shell = document.createElement('div');
   shell.className = 'app-shell app-shell-study';
@@ -41,6 +38,10 @@ export function Layout() {
   main.appendChild(inner);
   content.appendChild(main);
   shell.appendChild(content);
+
+  let isCurrent = true;
+  let unsub = null;
+  let topBarCleanup = null;
 
   function setTheme(theme) {
     document.documentElement.dataset.theme = theme === 'dark' ? 'dark' : 'light';
@@ -102,7 +103,8 @@ export function Layout() {
     content.appendChild(main);
 
     const topBarEl = TopBar();
-    main.appendChild(topBarEl);
+    main.appendChild(topBarEl.element);
+    topBarCleanup = topBarEl.cleanup;
     main.appendChild(outlet);
 
     const current = router.current;
@@ -122,6 +124,7 @@ export function Layout() {
   const cleanup = () => {
     isCurrent = false;
     if (unsub) unsub();
+    if (topBarCleanup) topBarCleanup();
   };
 
   return { element: shell, cleanup };

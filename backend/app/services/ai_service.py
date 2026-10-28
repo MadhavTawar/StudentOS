@@ -1153,32 +1153,24 @@ class AIService:
     async def chat_with_assistant(
         db: Session,
         user_id: str,
-        user_message: str
+        user_message: str,
+        workspace_id: str,
     ) -> AIAssistantResponse:
         """
         Conversational assistant querying authenticated user's tasks & deadlines with bounded retrieval.
         Orchestrated via LangGraph agent (agent.py); falls back to the rule-based
         OfflineRuleBasedProvider when AI_PROVIDER=offline.
         """
-        from backend.app.ai.agent import run_agent
-        from backend.app.models.user import User
-        from backend.app.services.workspace_service import get_current_workspace
-
-        user_tz = "UTC"
-        workspace_id = None
         try:
-            user = db.query(User).filter(User.id == user_id).first()
-            if user:
-                workspace = get_current_workspace(db, user, None)
-                workspace_id = workspace.id
-            from backend.app.models.user import UserPreference
-            pref = db.query(UserPreference).filter(UserPreference.user_id == user_id).first()
-            if pref and pref.timezone:
-                user_tz = pref.timezone
-        except Exception:
-            pass
-
-        result = await run_agent(user_id, workspace_id or user_id, user_message, db)
+            from backend.app.ai.graph import run_agent
+        except ModuleNotFoundError as exc:
+            if exc.name == "langgraph":
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="The AI orchestration dependency is unavailable. Install backend requirements and restart.",
+                ) from exc
+            raise
+        result = await run_agent(user_id, workspace_id, user_message, db)
 
         return AIAssistantResponse(
             reply=result["reply"],

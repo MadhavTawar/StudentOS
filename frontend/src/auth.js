@@ -3,6 +3,7 @@ import { store } from './store.js';
 
 let initRequestId = 0;
 let refreshRequestId = 0;
+let authExpiredListener = null;
 
 const initializeWorkspace = async () => {
   const workspaces = await api.listWorkspaces();
@@ -51,9 +52,12 @@ export const auth = {
   init() {
     initRequestId = ++initRequestId;
     void Promise.resolve().then(refreshUser);
-    window.addEventListener('auth:expired', () => {
-      store.setUser(null);
-    });
+    if (!authExpiredListener) {
+      authExpiredListener = () => {
+        store.setUser(null);
+      };
+      window.addEventListener('auth:expired', authExpiredListener);
+    }
   },
   async login(email, password) {
     const requestId = ++refreshRequestId;

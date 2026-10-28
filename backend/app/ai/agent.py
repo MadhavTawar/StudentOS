@@ -1,22 +1,16 @@
 """
 LangGraph assistant agent for StudentOS.
 
-Routes conversational queries through a graph of nodes:
-- route: classify user intent
-- study_plan: build earliest-deadline-first study plan
-- deadline_lookup: list upcoming deadlines
-- task_lookup: list pending tasks
-- knowledge_lookup: RAG over published workspace documents
-- respond: generate final reply via LLM or rule-based fallback
+Defines the StateGraph node functions (route, study_plan, deadline_lookup,
+task_lookup, knowledge_lookup, respond). The compiled graph and ``run_agent``
+entry point live in ``graph.py`` to avoid a circular import with
+``ai_service.py``.
 """
 
 from typing import Any, Dict, List, Optional, TypedDict
 
 from sqlalchemy.orm import Session
 
-from langgraph.graph import StateGraph, END
-
-from backend.app.ai.retriever import KnowledgeRetriever
 from backend.app.ai.tools import (
     list_tasks,
     list_upcoming_deadlines,
@@ -24,8 +18,6 @@ from backend.app.ai.tools import (
     search_authorized_documents,
     available_study_time,
 )
-from backend.app.services.ai_service import OfflineRuleBasedProvider
-import backend.app.services.ai_service as _ai_service
 from backend.app.core.config import settings
 from backend.app.core.logging import logger
 
@@ -48,7 +40,7 @@ def _build_context(db: Session, user_id: str, workspace_id: str) -> Dict[str, An
         "tasks": list_tasks(db, user_id, workspace_id, limit=15),
         "deadlines": list_upcoming_deadlines(db, user_id, workspace_id, limit=10),
         "goals": goal_progress(db, user_id, workspace_id),
-        "knowledge": search_authorized_documents(db, user_id, workspace_id, "", limit=5),
+        "knowledge": [],
     }
 
 
@@ -131,17 +123,30 @@ async def task_lookup_node(state: AgentState) -> AgentState:
 
 
 async def knowledge_lookup_node(state: AgentState) -> AgentState:
+    db = state["db"]
+    if db is None:
+        raise RuntimeError("AI assistant database session is unavailable.")
     workspace_id = state["workspace_id"]
     message = state.get("user_message", "")
-    retriever = KnowledgeRetriever(workspace_id=workspace_id, top_k=5)
-    docs = retriever._get_relevant_documents(message)
-    results = []
-    for doc in docs:
-        results.append({
-            "content": doc.page_content,
-            "metadata": doc.metadata,
-        })
-    state["tool_results"]["knowledge"] = results
+    results = search_authorized_documents(
+        db, state["user_id"], workspace_id, message, limit=5
+    )
+    state["tool_results"]["knowledge"] = [
+        {
+            "content": result.get("excerpt", ""),
+            "metadata": {
+                "document_title": result.get("document_title", ""),
+                "page_start": result.get("page_start"),
+                "page_end": result.get("page_end"),
+                "document_id": result.get("document_id"),
+                "version_id": result.get("version_id"),
+                "version_number": result.get("version_number"),
+                "workspace_id": workspace_id,
+                "distance": result.get("distance"),
+            },
+        }
+        for result in results
+    ]
     return state
 
 
@@ -192,13 +197,18 @@ async def respond_node(state: AgentState) -> AgentState:
     message = state.get("user_message", "")
     context = state.get("context", {})
 
+    # Build tool-result text that is shared across all providers.
+    tool_text = _format_tool_results(intent, tool_results)
+
     if settings.AI_PROVIDER == "offline":
+        from backend.app.services.ai_service import OfflineRuleBasedProvider
         provider = OfflineRuleBasedProvider()
         reply = await provider.assistant_chat(message, context)
         state["reply"] = reply
         return state
 
-    model = _ai_service.get_chat_model()
+    from backend.app.services.ai_service import get_chat_model
+    model = get_chat_model()
     system_content = (
         "You are StudentOS, a student productivity assistant. "
         "Answer only from the tool results and user context supplied below. "
@@ -207,7 +217,6 @@ async def respond_node(state: AgentState) -> AgentState:
         "If information is unavailable, say so clearly. "
         "Do not claim to perform actions or create records."
     )
-    tool_text = _format_tool_results(intent, tool_results)
     user_content = (
         f"User question: {message}\n"
         f"Intent: {intent}\n"
@@ -266,54 +275,4 @@ async def respond_node(state: AgentState) -> AgentState:
     return state
 
 
-def _should_continue(state: AgentState) -> str:
-    return state.get("intent", "respond")
-
-
-graph = StateGraph(AgentState)
-graph.add_node("route", route_node)
-graph.add_node("study_plan", study_plan_node)
-graph.add_node("deadline_lookup", deadline_lookup_node)
-graph.add_node("task_lookup", task_lookup_node)
-graph.add_node("knowledge_lookup", knowledge_lookup_node)
-graph.add_node("respond", respond_node)
-
-graph.set_entry_point("route")
-graph.add_conditional_edges("route", _should_continue, {
-    "study_plan": "study_plan",
-    "deadline_lookup": "deadline_lookup",
-    "task_lookup": "task_lookup",
-    "knowledge_lookup": "knowledge_lookup",
-    "respond": "respond",
-})
-graph.add_edge("study_plan", "respond")
-graph.add_edge("deadline_lookup", "respond")
-graph.add_edge("task_lookup", "respond")
-graph.add_edge("knowledge_lookup", "respond")
-graph.add_edge("respond", END)
-
-compiled = graph.compile()
-
-
-async def run_agent(user_id: str, workspace_id: str, user_message: str, db: Session) -> Dict[str, Any]:
-    initial: AgentState = {
-        "user_id": user_id,
-        "workspace_id": workspace_id,
-        "db": db,
-        "user_message": user_message,
-        "intent": None,
-        "context": {},
-        "tool_results": {},
-        "messages": [],
-        "reply": None,
-        "requires_approval": False,
-    }
-    final = await compiled.ainvoke(initial)
-    return {
-        "reply": final.get("reply", ""),
-        "intent": final.get("intent"),
-        "tool_results": final.get("tool_results", {}),
-    }
-
-
-__all__ = ["run_agent", "compiled", "AgentState"]
+__all__ = ["AgentState", "route_node", "study_plan_node", "deadline_lookup_node", "task_lookup_node", "knowledge_lookup_node", "respond_node"]

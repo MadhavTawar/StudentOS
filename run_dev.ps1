@@ -49,7 +49,13 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 if (-not (Test-Path (Join-Path $frontend "node_modules"))) {
-    throw "Frontend dependencies are missing. Run: npm install from the frontend directory."
+    Write-Host "Frontend dependencies missing. Running npm install..."
+    $npmInstall = Start-Process -FilePath $env:ComSpec `
+        -ArgumentList @("/d", "/c", "npm install") `
+        -WorkingDirectory $frontend -PassThru -Wait
+    if ($npmInstall.ExitCode -ne 0) {
+        throw "npm install failed in frontend directory."
+    }
 }
 
 try {

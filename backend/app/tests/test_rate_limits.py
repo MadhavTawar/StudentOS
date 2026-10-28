@@ -12,7 +12,7 @@ def test_rate_limit_returns_429_for_authenticated_assistant(client, auth_headers
     # Make the model operation instant so all requests happen within the
     # 60-second rate-limit window. The actual rate-limiting mechanism still
     # runs for real, and authentication remains enabled.
-    async def _fake_chat_with_assistant(db, user_id, user_message):
+    async def _fake_chat_with_assistant(db, user_id, user_message, workspace_id):
         return AIAssistantResponse(
             reply="Instant test reply",
             context_summary={"tasks_count": 0, "deadlines_count": 0},

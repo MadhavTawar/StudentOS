@@ -1,6 +1,6 @@
 const API_BASE =
   import.meta.env.VITE_API_BASE_URL ||
-  `http://${window.location.hostname}:8000/api/v1`;
+  `${window.location.origin}/api/v1`;
 
 class ApiClient {
   setWorkspaceId(workspaceId) {
@@ -23,7 +23,7 @@ class ApiClient {
       headers['Content-Type'] = 'application/json';
     }
 
-    if (endpoint.startsWith('/knowledge/')) {
+    if (endpoint.startsWith('/knowledge/') || endpoint === '/ai/assistant/chat') {
       const workspaceId = this.getWorkspaceId();
       if (workspaceId) headers['X-Workspace-ID'] = workspaceId;
     }

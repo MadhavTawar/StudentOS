@@ -9,6 +9,8 @@ retriever never bypasses workspace isolation.
 
 from typing import Any, Dict, List, Optional
 
+import asyncio
+
 from langchain_core.documents import Document
 from langchain_core.retrievers import BaseRetriever
 
@@ -69,8 +71,9 @@ class KnowledgeRetriever(BaseRetriever):
         return documents
 
     async def _aget_relevant_documents(self, query: str) -> list[Document]:
-        # The underlying vector store is synchronous; run it in the same thread.
-        return self._get_relevant_documents(query)
+        # The underlying vector store is synchronous; run it in a thread to
+        # avoid blocking the asyncio event loop.
+        return await asyncio.to_thread(self._get_relevant_documents, query)
 
 
 __all__ = ["KnowledgeRetriever"]

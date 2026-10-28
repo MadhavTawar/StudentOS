@@ -5,9 +5,9 @@ import { icon } from '../icons.js';
 import { Button } from '../components/index.js';
 import { EmptyState } from '../components/index.js';
 import { LoadingSkeleton } from '../components/index.js';
-import { Modal } from '../components/index.js';
 import { PriorityBadge } from '../components/index.js';
 import { StatusBadge } from '../components/index.js';
+import { QuickAddTaskModal } from '../components/QuickAddTaskModal.js';
 
 const dateKey = (date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -34,18 +34,14 @@ export function render() {
 
   // Quick task modal state
   let isQuickTaskOpen = false;
-  let taskTitle = '';
-  let taskCategory = 'Assignment';
-  let taskPriority = 'Medium';
-  let taskDueDate = '';
-  let isSubmitting = false;
+  let modalCleanup = null;
 
   const userName = auth.user?.full_name?.split(' ')[0] || 'Student';
 
   function fetchDashboard() {
     isLoading = true;
     error = null;
-    render();
+    renderDashboard();
     Promise.allSettled([
       api.getDashboardOverview(),
       api.listGoals(),
@@ -62,11 +58,11 @@ export function render() {
       if (accessRes.status === 'fulfilled') knowledgeAccess = accessRes.value;
       if (gmailRes.status === 'fulfilled') gmailConnected = !!gmailRes.value?.is_connected;
       isLoading = false;
-      render();
+      renderDashboard();
     }).catch((err) => {
       error = err.message || 'Failed to load dashboard data.';
       isLoading = false;
-      render();
+      renderDashboard();
     });
   }
 
@@ -86,30 +82,6 @@ export function render() {
     }
   }
 
-  async function handleCreateQuickTask(e) {
-    e.preventDefault();
-    if (!taskTitle.trim()) return;
-    isSubmitting = true;
-    render();
-    try {
-      await api.createTask({
-        title: taskTitle.trim(),
-        category: taskCategory,
-        priority: taskPriority,
-        due_date: taskDueDate ? new Date(taskDueDate).toISOString() : undefined,
-      });
-      isQuickTaskOpen = false;
-      taskTitle = '';
-      taskDueDate = '';
-      fetchDashboard();
-    } catch (err) {
-      console.error(err);
-    } finally {
-      isSubmitting = false;
-      render();
-    }
-  }
-
   function buildCalendarCells() {
     const cells = [];
     for (let i = 0; i < 42; i++) {
@@ -119,6 +91,10 @@ export function render() {
   }
 
   function renderDashboard() {
+    if (modalCleanup) {
+      modalCleanup();
+      modalCleanup = null;
+    }
     container.innerHTML = '';
 
     if (isLoading) {
@@ -147,7 +123,7 @@ export function render() {
     if (!getStartedDismissed) {
       const canManage = !!knowledgeAccess?.can_manage_documents;
       const steps = [
-        { id: 'task', title: 'Add your first task', line: 'Track coursework, assignments, and study sessions.', done: (data.stats?.total ?? 0) > 0, action: () => { isQuickTaskOpen = true; render(); }, label: 'Add task' },
+        { id: 'task', title: 'Add your first task', line: 'Track coursework, assignments, and study sessions.', done: (data.stats?.total ?? 0) > 0, action: () => { isQuickTaskOpen = true; renderDashboard(); }, label: 'Add task' },
         { id: 'deadline', title: 'Add an exam or deadline', line: 'Never miss a due date again.', done: deadlines.length > 0, action: () => router.navigate('/app/planner?view=deadlines'), label: 'Add deadline' },
         { id: 'goal', title: 'Set a goal', line: 'Break big outcomes into milestones.', done: goals.length > 0, action: () => router.navigate('/app/goals'), label: 'Set goal' },
       ];
@@ -178,7 +154,7 @@ export function render() {
         dismiss.onclick = () => {
           getStartedDismissed = true;
           localStorage.setItem('studentos_get_started_dismissed', 'true');
-          render();
+          renderDashboard();
         };
         card.appendChild(p);
         card.appendChild(dismiss);
@@ -199,7 +175,7 @@ export function render() {
         dismissBtn.onclick = () => {
           getStartedDismissed = true;
           localStorage.setItem('studentos_get_started_dismissed', 'true');
-          render();
+          renderDashboard();
         };
         header.appendChild(h2);
         header.appendChild(sub);
@@ -292,7 +268,7 @@ export function render() {
     calIcon.style.height = '15px';
     dateStamp.appendChild(calIcon);
     dateStamp.appendChild(document.createTextNode(currentDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })));
-    const addTaskBtn = Button({ children: 'Add task', variant: 'primary', onClick: () => { isQuickTaskOpen = true; render(); }, icon: 'plus' });
+    const addTaskBtn = Button({ children: 'Add task', variant: 'primary', onClick: () => { isQuickTaskOpen = true; renderDashboard(); }, icon: 'plus' });
     actions.appendChild(dateStamp);
     actions.appendChild(addTaskBtn);
     masthead.appendChild(welcome);
@@ -479,7 +455,7 @@ export function render() {
       const empty = document.createElement('div');
       empty.className = 'dashboard-timeline-empty';
       empty.textContent = 'Nothing due today.';
-      const btn = Button({ children: 'Add task', variant: 'outline', size: 'sm', onClick: () => { isQuickTaskOpen = true; render(); }, icon: 'plus' });
+      const btn = Button({ children: 'Add task', variant: 'outline', size: 'sm', onClick: () => { isQuickTaskOpen = true; renderDashboard(); }, icon: 'plus' });
       empty.appendChild(btn);
       timeline.appendChild(empty);
     }
@@ -620,7 +596,7 @@ export function render() {
       const next = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1);
       calendarMonth = next;
       if (selectedCalendarDate.getMonth() !== next.getMonth() || selectedCalendarDate.getFullYear() !== next.getFullYear()) selectedCalendarDate = next;
-      render();
+      renderDashboard();
     };
     const nextBtn = document.createElement('button');
     nextBtn.type = 'button';
@@ -630,7 +606,7 @@ export function render() {
       const next = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1);
       calendarMonth = next;
       if (selectedCalendarDate.getMonth() !== next.getMonth() || selectedCalendarDate.getFullYear() !== next.getFullYear()) selectedCalendarDate = next;
-      render();
+      renderDashboard();
     };
     calControls.appendChild(prevBtn);
     calControls.appendChild(nextBtn);
@@ -676,7 +652,7 @@ export function render() {
       btn.onclick = () => {
         selectedCalendarDate = day;
         if (!isCurrentMonth) calendarMonth = new Date(day.getFullYear(), day.getMonth(), 1);
-        render();
+        renderDashboard();
       };
       calGrid.appendChild(btn);
     });
@@ -840,7 +816,7 @@ export function render() {
         icon: icon('checkCircle2'),
         title: 'Nothing tracked yet',
         description: 'Add a task or connect Gmail to start building your study plan.',
-        action: Button({ children: 'Add a task', variant: 'outline', onClick: () => { isQuickTaskOpen = true; render(); }, icon: 'plus' }),
+        action: Button({ children: 'Add a task', variant: 'outline', onClick: () => { isQuickTaskOpen = true; renderDashboard(); }, icon: 'plus' }),
       }));
     } else {
       const priorities = document.createElement('div');
@@ -925,115 +901,21 @@ export function render() {
     attention.appendChild(proposalsCard);
     container.appendChild(attention);
 
-    // Quick Add Task Modal
+    // Quick Add Task Modal (via shared component)
     if (isQuickTaskOpen) {
-      const modal = Modal({
+      const modal = QuickAddTaskModal({
         isOpen: true,
-        onClose: () => { isQuickTaskOpen = false; render(); },
-        title: 'Quick-add academic task',
-        description: 'Add a task with priority, category, and due date.',
+        onClose: () => { isQuickTaskOpen = false; renderDashboard(); },
+        onTaskCreated: () => { fetchDashboard(); },
       });
-      const form = document.createElement('form');
-      form.className = 'dashboard-quick-form';
-      form.onsubmit = handleCreateQuickTask;
-
-      const field1 = document.createElement('div');
-      field1.className = 'dashboard-form-field';
-      const label1 = document.createElement('label');
-      label1.className = 'label';
-      label1.htmlFor = 'quickTitle';
-      label1.textContent = 'Task title *';
-      const input1 = document.createElement('input');
-      input1.id = 'quickTitle';
-      input1.required = true;
-      input1.className = 'input';
-      input1.placeholder = 'e.g., Read CS301 Lecture 4 slides';
-      input1.value = taskTitle;
-      input1.oninput = (e) => { taskTitle = e.target.value; };
-      field1.appendChild(label1);
-      field1.appendChild(input1);
-
-      const row = document.createElement('div');
-      row.className = 'dashboard-form-row';
-      const field2 = document.createElement('div');
-      field2.className = 'dashboard-form-field';
-      const label2 = document.createElement('label');
-      label2.className = 'label';
-      label2.htmlFor = 'quickCategory';
-      label2.textContent = 'Category';
-      const select1 = document.createElement('select');
-      select1.id = 'quickCategory';
-      select1.className = 'input';
-      select1.value = taskCategory;
-      select1.onchange = (e) => { taskCategory = e.target.value; };
-      ['Assignment', 'Exam Prep', 'Project', 'Placement', 'General'].forEach((v) => {
-        const opt = document.createElement('option');
-        opt.value = v;
-        opt.textContent = v;
-        select1.appendChild(opt);
-      });
-      field2.appendChild(label2);
-      field2.appendChild(select1);
-
-      const field3 = document.createElement('div');
-      field3.className = 'dashboard-form-field';
-      const label3 = document.createElement('label');
-      label3.className = 'label';
-      label3.htmlFor = 'quickPriority';
-      label3.textContent = 'Priority';
-      const select2 = document.createElement('select');
-      select2.id = 'quickPriority';
-      select2.className = 'input';
-      select2.value = taskPriority;
-      select2.onchange = (e) => { taskPriority = e.target.value; };
-      ['Low', 'Medium', 'High', 'Urgent'].forEach((v) => {
-        const opt = document.createElement('option');
-        opt.value = v;
-        opt.textContent = v;
-        select2.appendChild(opt);
-      });
-      field3.appendChild(label3);
-      field3.appendChild(select2);
-      row.appendChild(field2);
-      row.appendChild(field3);
-
-      const field4 = document.createElement('div');
-      field4.className = 'dashboard-form-field';
-      const label4 = document.createElement('label');
-      label4.className = 'label';
-      label4.htmlFor = 'quickDueDate';
-      label4.textContent = 'Due date & time (optional)';
-      const input2 = document.createElement('input');
-      input2.id = 'quickDueDate';
-      input2.type = 'datetime-local';
-      input2.className = 'input';
-      input2.value = taskDueDate;
-      input2.oninput = (e) => { taskDueDate = e.target.value; };
-      field4.appendChild(label4);
-      field4.appendChild(input2);
-
-      const actionsDiv = document.createElement('div');
-      actionsDiv.className = 'dashboard-form-actions';
-      const cancelBtn = Button({ children: 'Cancel', variant: 'outline', onClick: () => { isQuickTaskOpen = false; render(); } });
-      const submitBtn = Button({ children: 'Create task', variant: 'primary', isLoading: isSubmitting, type: 'submit' });
-      actionsDiv.appendChild(cancelBtn);
-      actionsDiv.appendChild(submitBtn);
-
-      form.appendChild(field1);
-      form.appendChild(row);
-      form.appendChild(field4);
-      form.appendChild(actionsDiv);
-      modal.querySelector('.card').appendChild(form);
-      // find backdrop and append properly
-      const backdrop = modal;
-      const dialog = backdrop.querySelector('.card');
-      dialog.appendChild(form);
-      container.appendChild(backdrop);
+      container.appendChild(modal.element);
+      modalCleanup = modal.cleanup;
     }
 
     return container;
   }
 
+  renderDashboard();
   fetchDashboard();
-  return renderDashboard();
+  return container;
 }

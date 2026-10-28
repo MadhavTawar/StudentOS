@@ -221,7 +221,6 @@ export function TopBar() {
   notifDot.style.background = 'var(--accent-danger)';
   notifDot.style.border = '1.5px solid var(--bg-main)';
   notifDot.setAttribute('aria-label', '0 unread notifications');
-  notifBtn.appendChild(notifBtn);
   notifBtn.appendChild(notifDot);
   notifControl.appendChild(notifBtn);
 
