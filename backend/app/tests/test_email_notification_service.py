@@ -68,6 +68,7 @@ async def test_resend_provider_sends_expected_payload(monkeypatch):
         from_email="StudentOS <notify@example.test>",
         timeout_seconds=3.0,
     )
+    provider.api_url = "https://resend.example.test/emails"
 
     result = await provider.send(
         recipient="student@example.test",
@@ -76,7 +77,7 @@ async def test_resend_provider_sends_expected_payload(monkeypatch):
     )
 
     assert result.provider_message_id == "resend-message-id"
-    assert calls[0][0] == "https://api.resend.com/emails"
+    assert calls[0][0] == "https://resend.example.test/emails"
     assert calls[0][1]["Authorization"] == "Bearer test-key"
     assert calls[0][2]["to"] == ["student@example.test"]
 

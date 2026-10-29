@@ -51,6 +51,7 @@ class Settings(BaseSettings):
     RESEND_API_KEY: str = ""
     RESEND_FROM_EMAIL: str = ""
     EMAIL_REQUEST_TIMEOUT_SECONDS: float = 10.0
+    RESEND_API_URL: str = "https://api.resend.com/emails"
 
     # Workspace knowledge documents (local storage and local Chroma embeddings)
     KNOWLEDGE_STORAGE_DIR: str = "~/.studentos/knowledge"

@@ -75,8 +75,6 @@ class MockEmailNotificationProvider:
 class ResendEmailNotificationProvider:
     """Resend REST API provider using the project's existing httpx dependency."""
 
-    API_URL = "https://api.resend.com/emails"
-
     def __init__(
         self,
         *,
@@ -86,6 +84,7 @@ class ResendEmailNotificationProvider:
     ) -> None:
         self.api_key = api_key if api_key is not None else settings.RESEND_API_KEY
         self.from_email = from_email if from_email is not None else settings.RESEND_FROM_EMAIL
+        self.api_url = settings.RESEND_API_URL
         self.timeout_seconds = (
             timeout_seconds
             if timeout_seconds is not None
@@ -128,7 +127,7 @@ class ResendEmailNotificationProvider:
         try:
             async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
                 response = await client.post(
-                    self.API_URL,
+                    self.api_url,
                     headers={
                         "Authorization": f"Bearer {self.api_key}",
                         "Content-Type": "application/json",
